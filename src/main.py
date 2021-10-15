@@ -198,19 +198,27 @@ if __name__ == '__main__':
     # define some random constants to plot
     x_axis = np.linspace(-10, 10, num=100)
     y_axis = np.linspace(-10, 10, num=100)
-    A1, B1, Z0, I, spacing = 2, 2, 0.0, 1, 1.0
+
+    # A1 and B1 are (half of) the rectangle length and width
+    A1, B1, I, spacing = 2, 2, 1, 1.0
     Z = 1.0
+
+    z_wall_1 = -100.0 # 100 cm back
+    z_wall_2 = 100.0 # 100 cm forward
 
     GRID = 3
     xx, yy = get_coordinates(A1, B1, spacing, GRID, 0, 0)
     size = max((GRID-1), 1) * A1 * spacing * 2
 
-    grid = np.zeros((100, 100))
+    grid = np.zeros((100, 100, 100))
+
     x_axis = np.linspace(-size, size, 100)
     y_axis = np.linspace(-size, size, 100)
+
     unit = 100 / (2*size) # convert cm grid (2*size x 2*size) to matplotlib unit grid (100x100 plot)
     for i, x in enumerate(x_axis):
         for j, y in enumerate(y_axis):
+            # for k, z in ...
             # visualize coil placement by plotting distance to closest coil for each (x,y)
 
             # v = [np.sqrt((x - xx[ii, jj])**2 + (y - yy[ii, jj])**2)
@@ -219,7 +227,13 @@ if __name__ == '__main__':
 
             # get the magnitude of the field at each x, y
 
-            B = get_gradient(x, y, Z, A1, B1, Z0, I, GRID, spacing)
+            B_wall_1 = get_gradient(x, y, Z, A1, B1, z_wall_1, I, GRID, spacing)
+            B_wall_2 = get_gradient(x, y, Z, A1, B1, z_wall_2, I, GRID, spacing)
+
+            B = B_wall_1 + B_wall_2
+
+            u, v, w = B[0], B[1], B[2]
+
             grid[i, j] = np.linalg.norm(B, axis=0)
 
     # plot the grid
