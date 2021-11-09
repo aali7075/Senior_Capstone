@@ -1,1 +1,1 @@
-from simulation import Simulation
+from simulation import get_full_b
