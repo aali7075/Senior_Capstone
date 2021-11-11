@@ -1,8 +1,9 @@
 import cvxpy as cp
 import numpy as np
 
-def solve(b, x_t, I_max, r):
-    n = len(x_t) # number of coils to solve
+
+def solve_currents(b, x_t, I_max, r):
+    n = len(x_t)  # number of coils to solve
 
     # setup minimization problem
     x = cp.Variable(n)
