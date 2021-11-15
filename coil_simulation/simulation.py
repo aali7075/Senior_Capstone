@@ -32,12 +32,12 @@ def _get_coil_coordinates(a1, b1, s, shape, x, y):
     """
 
     m, n = shape
-    f_a = lambda _x: (s * (n - 1) + 2 * x * (n - 1)) / 2.0
-    f_b = lambda _y: (s * (m - 1) + 2 * y * (m - 1)) / 2.0
 
-    f_a1, f_b1 = f_a(a1), f_b(b1)
-    xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x
-    yy = np.linspace(-1.0 * f_b1, f_b1, num=m) + y
+    x_range = (2 * a1 + s) * (n - 1) / 2.0
+    y_range = (2 * b1 + s) * (m - 1) / 2.0
+
+    xx = np.linspace(-1.0 * x_range, x_range, num=n) + x
+    yy = np.linspace(-1.0 * y_range, y_range, num=m) + y
 
     return xx, yy
 
@@ -93,7 +93,8 @@ def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis
             # move each measurement s.t. the coil is at 0, 0, 0 and the measurement is relative to that
             x_q = p[0] - coil_x
             y_q = p[1] - coil_y
-            z_q = 0
+            z_q = p[2]
+
             x.append(field_x(x_q, y_q, z_q, a1, b1, 0, 1))
             y.append(field_y(x_q, y_q, z_q, a1, b1, 0, 1))
             z.append(field_z(x_q, y_q, z_q, a1, b1, 0, 1))

@@ -105,7 +105,7 @@ def field_z(x, y, z, a1, b1, z0, N):
     :return: Magnetic flux density
     """
 
-    k = 100.0 * 1e6 * MU_0 * N / (4 * np.pi)
+    k = 100.0 * MU_0 * N / (4 * np.pi)
 
     # compute each sub-function once and store result
     r_vals = _eval_r(x, y, z, a1, b1, z0)

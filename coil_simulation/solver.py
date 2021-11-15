@@ -1,5 +1,5 @@
-import cvxpy as cp
 import numpy as np
+import cvxpy as cp
 
 
 def solve_currents(b, x_t, I_max, r):
