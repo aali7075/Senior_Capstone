@@ -126,3 +126,14 @@ def get_full_b(wall1, wall2, p):
     b = np.concatenate([b1, b2], axis=1)
 
     return b
+
+
+wall = {
+    'center': (0, 0, 0), # 3 points, x, y, z (float)
+    'shape': (0, 0), # 2 points, rows columns (int)
+    'a1': 0, # float
+    'b1': 0, # float
+    'coil_spacing': 0, # float
+    'rotation_axis': None, # string, can be one of None, 'x', 'y', 'z' (could replace with int)
+    'theta': 0 # float, radians
+}

@@ -59,8 +59,8 @@ def field_x(x, y, z, a1, b1, z0, N):
     r_vals = _eval_r(x, y, z, a1, b1, z0)
     d_vals = _eval_d(x, y, z, a1, b1, z0)
 
-    return k * np.sum([(-1 ** i) * z / (r_vals[i] * (r_vals[i] + d_vals[i]))
-                       for i in range(4)], axis=0)
+    return 1e5 * k * np.sum([(-1 ** i) * z / (r_vals[i] * (r_vals[i] + d_vals[i]))
+                             for i in range(4)], axis=0)
 
 
 def field_y(x, y, z, a1, b1, z0, N):
@@ -85,8 +85,8 @@ def field_y(x, y, z, a1, b1, z0, N):
     r_vals = _eval_r(x, y, z, a1, b1, z0)
     c_vals = _eval_c(x, y, z, a1, b1, z0)
 
-    return k * np.sum([(-1 ** i) * z / (r_vals[i] * (r_vals[i] + (-1 ** i) * c_vals[i]))
-                       for i in range(4)], axis=0)
+    return 1e5 * k * np.sum([(-1 ** i) * z / (r_vals[i] * (r_vals[i] + (-1 ** i) * c_vals[i]))
+                             for i in range(4)], axis=0)
 
 
 def field_z(x, y, z, a1, b1, z0, N):
@@ -115,5 +115,5 @@ def field_z(x, y, z, a1, b1, z0, N):
     # return constant * inner sum of various function combinations
     # tried to keep things clean, or at least cleaner than the original mathematica code
 
-    return k * np.sum([((-1 ** (i + 1)) * d_vals[i] / (r_vals[i] * (r_vals[i] + (-1 ** i) * c_vals[i]))) -
-                       (c_vals[i] / (r_vals[i] * (r_vals[i] - d_vals[i]))) for i in range(4)], axis=0)
+    return 1e5 * k * np.sum([((-1 ** (i + 1)) * d_vals[i] / (r_vals[i] * (r_vals[i] + (-1 ** i) * c_vals[i]))) -
+                             (c_vals[i] / (r_vals[i] * (r_vals[i] - d_vals[i]))) for i in range(4)], axis=0)
