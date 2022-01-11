@@ -36,11 +36,13 @@ def _get_coil_coordinates(a1, b1, s, shape, x, y):
     f_b = lambda _y: (s * (m - 1) + 2 * y * (m - 1)) / 2.0
 
     f_a1, f_b1 = f_a(a1), f_b(b1)
-    #print("f_a1", f_a1, "f_b1", f_b1)
-    xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x
-    yy = np.linspace(-1.0 * f_b1, f_b1, num=m) + y
+    # print("f_a1", f_a1, "f_b1", f_b1)
+    #xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x #PROBLEM WITH NP>LINSPACE FOR SOME REASON
+    # yy = np.linspace(-1.0 * f_b1, f_b1, num=m) + y
+    # print(xx)
+    # print(yy)
 
-    return xx, yy
+    return [-0.25,0.25],[-0.25,0.25]
 
 
 def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis=None, rot_angle=0):
@@ -156,13 +158,11 @@ def pls(lst):
     check = np.zeros((4,3))
     check = check+3
     check = check.flatten()
-    #print(check)
     #lst.append(180)
-    lst[:]=check # pass by reference for labview
-    print(lst)
+    lst[:]=b # pass by reference for labview
     return check
 
-def getFullB1(lst):
+def get_full_b1(lst):
     #print(len(lst))
     w1_center = (lst[0],lst[1],lst[2]) # wall center (metric)
     w1_shape = (lst[3],lst[4]) # (rows, columns)
@@ -187,9 +187,10 @@ def getFullB1(lst):
 
     b = np.concatenate([b1, b2], axis=1)
     b=b.flatten()
-    #print("b new is ", b)
-    lst[:]=[0,0,0,0]
-    return 0
+    print("b new is ", b)
+
+    lst[:]=b
+    return b
 
 w1 = {
     'center': (0, 0, 0), # 3 points, x, y, z (float)
@@ -210,8 +211,7 @@ w2 = {
     'rotation_axis': None, # string, can be one of None, 'x', 'y', 'z' (could replace with int)
     'theta': 0 # float, radians
 }
-lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
+#lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
 # get_full_b(w1,w2,(1,0,0))
 #get_full_b1(lst)
-pls(lst)
 
