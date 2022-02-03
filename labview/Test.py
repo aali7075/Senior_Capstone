@@ -14,14 +14,20 @@ def editlist(alist,anum,astr,nestedlist):
 
     nestedlist[0].append(5)
     return astr2
-def mockList(lst): # an array with ten elements
+def mockList(lst, lst2): # an array with ten elements
     #lst= np.array(lst)
     for i in range(len(lst)):
         lst[i]+=i
 
     check = np.zeros((4,3))
-    check = check+3
+    check = check+5
     check = check.flatten()
+    test = np.linspace(0,1,5)
     #lst.append(180)
     lst[:]=check # pass by reference for labview
+    copy = np.array(lst2)
+    lst2[:] = test
+    #print(lst)
     return check
+
+#mockList([0,0,0], [1,1,1])

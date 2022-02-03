@@ -32,17 +32,19 @@ def _get_coil_coordinates(a1, b1, s, shape, x, y):
     """
 
     m, n = shape
+    m = int(m)
+    n = int(n)
     f_a = lambda _x: (s * (n - 1) + 2 * x * (n - 1)) / 2.0
     f_b = lambda _y: (s * (m - 1) + 2 * y * (m - 1)) / 2.0
 
     f_a1, f_b1 = f_a(a1), f_b(b1)
     # print("f_a1", f_a1, "f_b1", f_b1)
-    #xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x #PROBLEM WITH NP>LINSPACE FOR SOME REASON
-    # yy = np.linspace(-1.0 * f_b1, f_b1, num=m) + y
+    xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x #PROBLEM NUMPY if your on a version higher than 3.8.10
+    yy = np.linspace(-1.0 * f_b1, f_b1, num=m) + y
     # print(xx)
     # print(yy)
 
-    return [-0.25,0.25],[-0.25,0.25]
+    return xx,yy
 
 
 def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis=None, rot_angle=0):
@@ -187,9 +189,10 @@ def get_full_b1(lst):
 
     b = np.concatenate([b1, b2], axis=1)
     b=b.flatten()
-    print("b new is ", b)
-
+    #print("b new is ", b, len(b))
     lst[:]=b
+    #lst[:]= [1,23]
+
     return b
 
 w1 = {
@@ -211,7 +214,7 @@ w2 = {
     'rotation_axis': None, # string, can be one of None, 'x', 'y', 'z' (could replace with int)
     'theta': 0 # float, radians
 }
-#lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
-# get_full_b(w1,w2,(1,0,0))
-#get_full_b1(lst)
+lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
+get_full_b(w1,w2,(1,0,0))
+get_full_b1(lst)
 

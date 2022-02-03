@@ -1,6 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
+# Create a wrapper function which calls fullb and solve currents. We will need x_t and r from labview
 
 def solve_currents(b, x_t, I_max, r):
     n = len(x_t)  # number of coils to solve
