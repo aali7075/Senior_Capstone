@@ -14,22 +14,6 @@ PHYSICAL_CHANNEL = DEVICE_NAME + "/ai0"   # Physical channel name from NI-MAX
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
 ACQ_DURATION = .1 * 60                # DAQ task duration in sec
 
-# Reads any available samples from the DAQ buffer and places them on the queue.
-# Runs for ACQ_DURATION seconds.
-def daq_reader(q, task):
-    print("DAQ Reader start")
-    reader = AnalogSingleChannelReader(task.in_stream)
-    buffer = np.zeros((10,))
-    start_time = time.time()
-    while time.time() - start_time < ACQ_DURATION:
-        n = reader.read_many_sample(buffer, number_of_samples_per_channel=10)
-        ts = perf_counter_ns()
-        q.put_nowait((ts, n, buffer[:n]))
-    q.put_nowait(None)
-    print("DAQ Reader Ennd")
-    task.close()
-    return
-
 def buffer_copy(in_q, out_qs: List[queue.Queue]):
     print("DAQ Copy Start")
     while True:
@@ -71,6 +55,7 @@ if __name__ == "__main__":
     task.ai_channels.add_ai_voltage_chan(PHYSICAL_CHANNEL)
     task.timing.cfg_samp_clk_timing(rate=SAMPLE_RATE,
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
+    reader = AnalogSingleChannelReader(task.in_stream)
 
     LOG_FILE_PATH = "lab_logs.csv"
 
@@ -90,11 +75,18 @@ if __name__ == "__main__":
     for q, w_f, w_a in zip(copy_queues, worker_functions, worker_function_args):
         workers.append(threading.Thread(target=w_f, args=(q, *w_a)))
 
+    def daq_reader(task_idx, event_type, num_samples, callback_data=None):
+        buf = nnp.zeros((num_samples,))
+        n = reader.read_many_sample(buf, num_samples)
+        ts = perf_counter_ns()
+        daq_out_queue.put_nowait((ts, n, buffer))
+    
+    task.register_every_n_samples_acquired_into_buffer_event(200, daq_reader)
+
     # Start acquisition and threads
     task.start()
     print("Task running.")
 
-    daq_worker.start()
     copy_worker.start()
     for w in workers:
         w.start()
