@@ -4,15 +4,18 @@ import queue
 import threading
 import numpy as np
 from time import perf_counter_ns
-from nidaqmx.stream_readers import AnalogSingleChannelReader
+from nidaqmx.stream_readers import AnalogMultiChannelReader
 from typing import List
 import pandas as pd
 
 # Constants
 DEVICE_NAME = "cDAQ1Mod3"
-PHYSICAL_CHANNEL = DEVICE_NAME + "/ai0"   # Physical channel name from NI-MAX
+X_CHANNEL = DEVICE_NAME + "/ai0"   # Physical channel name from NI-MAX
+Y_CHANNEL = DEVICE_NAME + "/ai1"   # Physical channel name from NI-MAX
+Z_CHANNEL = DEVICE_NAME + "/ai2"   # Physical channel name from NI-MAX
+
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
-ACQ_DURATION = .1 * 60                # DAQ task duration in sec
+ACQ_DURATION = 2 * 60                # DAQ task duration in sec
 
 def buffer_copy(in_q, out_qs: List[queue.Queue]):
     print("DAQ Copy Start")
@@ -32,10 +35,8 @@ def log_data(q, fp):
     while True:
         data = q.get(block=True, timeout=2)
         if data is not None:
-            print(data)
-            # df = pd.DataFrame(columns=['timestamp', 'sample'],
-            #                   data=[[data[0]] * data[1], data[2]])
-            # df.to_csv(fp, mode='a')
+            df = pd.DataFrame({'timestamp': data[0], 'x': data[2][0], 'y': data[2][1], 'z': data[2][2]})
+            df.to_csv(fp, mode='a', index=False, header=None)
         else:
             print('Data logger end')
             return
@@ -43,7 +44,7 @@ def log_data(q, fp):
 
 # Main program
 if __name__ == "__main__":
-
+    num_channels = 3
     device = nidaqmx.system.Device(DEVICE_NAME)
     channels = device.ai_physical_chans.channel_names
     # print(channels)
@@ -52,12 +53,14 @@ if __name__ == "__main__":
 
     # Set up DAQ vars
     task = nidaqmx.task.Task()
-    task.ai_channels.add_ai_voltage_chan(PHYSICAL_CHANNEL)
+    task.ai_channels.add_ai_voltage_chan(X_CHANNEL)
+    task.ai_channels.add_ai_voltage_chan(Y_CHANNEL)
+    task.ai_channels.add_ai_voltage_chan(Z_CHANNEL)
     task.timing.cfg_samp_clk_timing(rate=SAMPLE_RATE,
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
-    reader = AnalogSingleChannelReader(task.in_stream)
+    reader = AnalogMultiChannelReader(task.in_stream)
 
-    LOG_FILE_PATH = "lab_logs.csv"
+    LOG_FILE_PATH = "lab_log_2.8.22.csv"
 
     # Set up threading vars
     daq_out_queue = queue.Queue()
@@ -68,7 +71,7 @@ if __name__ == "__main__":
     worker_functions = [log_data,]
     worker_function_args = [[LOG_FILE_PATH],]
 
-    daq_worker = threading.Thread(target=daq_reader, args=(daq_out_queue, task))
+    # daq_worker = threading.Thread(target=daq_reader, args=(daq_out_queue, task))
     copy_worker = threading.Thread(target=buffer_copy, args=(daq_out_queue, copy_queues))
 
     workers = []
@@ -76,10 +79,10 @@ if __name__ == "__main__":
         workers.append(threading.Thread(target=w_f, args=(q, *w_a)))
 
     def daq_reader(task_idx, event_type, num_samples, callback_data=None):
-        buf = nnp.zeros((num_samples,))
+        buf = np.zeros((num_channels, num_samples), dtype=np.float64)
         n = reader.read_many_sample(buf, num_samples)
         ts = perf_counter_ns()
-        daq_out_queue.put_nowait((ts, n, buffer))
+        daq_out_queue.put_nowait((ts, n, buf))
     
     task.register_every_n_samples_acquired_into_buffer_event(200, daq_reader)
 
@@ -92,12 +95,14 @@ if __name__ == "__main__":
         w.start()
     print("All workers running.")
 
-    while not task.is_task_done():
+    time_start = perf_counter_ns()
+    while perf_counter_ns() < time_start + (ACQ_DURATION * 1000000000):
         pass # Spin parent thread until task is done
+    task.stop()
+    daq_out_queue.put_nowait(None)
     print("Task is done.")
 
     print('Joining workers.')
-    daq_worker.join()
     copy_worker.join()
     for w in workers:
         w.join()
