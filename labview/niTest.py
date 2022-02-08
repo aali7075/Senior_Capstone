@@ -1,25 +1,8 @@
-#########################################################################
-# DAQmx Python - Producer/Consumer example
-# Updated 10/19/2018
-#
-# Reads continuous samples from a single physical channel and writes
-# them to a log file. Uses two parallel threads to perform
-# DAQmx Read calls and data processing.
-#
-# Note: The number of samples per execution varies slightly since
-# the task's start and stop times are specified in software.
-#
-# Input Type: Analog Voltage
-# Dependencies: nidaqmx
-#########################################################################
-
 import nidaqmx
 import time
 import queue
 import threading
 import numpy as np
-import matplotlib.pyplot as plt
-from line_profiler_pycharm import profile
 from time import perf_counter_ns
 from nidaqmx.stream_readers import AnalogSingleChannelReader
 
@@ -27,43 +10,49 @@ from nidaqmx.stream_readers import AnalogSingleChannelReader
 DEVICE_NAME = "cDAQ1Mod3"
 PHYSICAL_CHANNEL = DEVICE_NAME + "/ai0"   # Physical channel name from NI-MAX
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
-ACQ_DURATION = 10                # DAQ task duration in sec
-
-LOG_FILE_PATH = "log.txt"
+ACQ_DURATION = .1 * 60                # DAQ task duration in sec
 
 # Reads any available samples from the DAQ buffer and places them on the queue.
 # Runs for ACQ_DURATION seconds.
-@profile
-def producer_loop(q, task):
-    print("Producer start")
+def daq_reader(q, task):
+    print("DAQ Reader start")
     reader = AnalogSingleChannelReader(task.in_stream)
     buffer = np.zeros((100000,))
     start_time = time.time()
     while time.time() - start_time < ACQ_DURATION:
         n = reader.read_many_sample(buffer)
-        # print(len(data))
-        # print(np.mean(data))
-        q.put_nowait(np.mean(buffer[:n]))
+        ts = perf_counter_ns()
+        q.put_nowait((ts, n, buffer[:n]))
     q.put_nowait(None)
-    print("Producer end")
+    print("DAQ Reader Ennd")
     task.close()
     return
 
-# Takes samples from the queue and writes them to LOG_FILE_PATH.
-def consumer_loop(q, buff, file):
-    print("Consumer start")
+def buffer_copy(in_q, out_qs: List[queue.Queue]):
+    print("DAQ Copy Start")
     while True:
-        temp = q.get(block=True, timeout=2)
-        if temp is None:
-            print("Consumer end")
+        data = in_q.get(block=True, timeout=2)
+        if data is not None:
+            for q in out_qs:
+                q.put_nowait(data) # copy data to all queues
+        else:
+            print("DAQ Copy End")
+            for q in out_qs:
+                q.put_nowait(None) # send poison pill to all queues
             return
-        #
-        # for val in temp:
-        file.write("{}\n".format(temp))
-        buff.append(temp)
 
-        # time.sleep(0.5) # Simulate 0.5 seconds of extra processing per sample
-        q.task_done()
+def log_data(q, fp):
+    print('Data logger start')
+    while True:
+        data = q.get(block=True, timeout=2)
+        if data is not None:
+            df = pd.DataFrame(columns=['timestamp', 'sample'], 
+                              data=[[data[0]] * data[1], data[2]])
+            df.to_csv(fp, mode='a')
+        else:
+            print('Data logger end')
+            return
+
 
 # Main program
 if __name__ == "__main__":
@@ -80,42 +69,42 @@ if __name__ == "__main__":
     task.timing.cfg_samp_clk_timing(rate=SAMPLE_RATE,
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
 
-    out_file = open(LOG_FILE_PATH,"w+")
-    out_file.write("\n~~New Test Started~~\n")
+    LOG_FILE_PATH = "lab_logs.csv"
 
     # Set up threading vars
-    q = queue.Queue()
-    data_buffer = []
-    prod = threading.Thread(target=producer_loop, args=(q, task))
-    cons = threading.Thread(target=consumer_loop, args=(q, data_buffer, out_file))
+    daq_out_queue = queue.Queue()
+    log_copy_queue = queue.Queue()
+
+    # tuples with (queue, function, function args)
+    copy_queues [log_copy_queue,]
+    worker_functions = [log_data,]
+    worker_function_args = [[LOG_FILE_PATH],]
+
+    daq_worker = threading.Thread(target=daq_reader, args=(daq_out_queue, task))
+    copy_worker = threading.Thread(target=buffer_copy, args=(daq_out_queue, copy_queues))
+
+    workers = []
+    for q, w_f, w_a in zip(copy_queues, worker_functions, worker_function_args):
+        workers.append(threading.Thread(target=w_f, args=(q, *w_a)))
 
     # Start acquisition and threads
     task.start()
-    prod.start()
-    cons.start()
-    print("Task is running")
+    print("Task running.")
+
+    daq_worker.start()
+    copy_worker.start()
+    log_worker.start()
+    print("All workers running.")
 
     while not task.is_task_done():
         pass # Spin parent thread until task is done
-    print("Task is done")
+    print("Task is done.")
 
-    cons.join()
-    print("Consumer finished")
+    print('Joining workers.')
+    daq_worker.join()
+    copy_worker.join()
+    for w in workers:
+        w.join()
 
-    # Clean up
-    out_file.close()
+    print('Closing task.')
     task.close()
-
-    print(len(data_buffer))
-
-    # create time data
-    t = np.arange(0, ACQ_DURATION, ACQ_DURATION/len(data_buffer))
-
-    # plotting
-    plt.plot(t, data_buffer, "-o")
-    plt.title('NI DAQmx Voltage')
-    plt.xlabel('t [s]')
-    plt.ylabel('U [V]')
-    plt.grid()
-    plt.show()
-    print("Done!")
