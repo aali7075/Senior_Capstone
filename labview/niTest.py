@@ -5,6 +5,8 @@ import threading
 import numpy as np
 from time import perf_counter_ns
 from nidaqmx.stream_readers import AnalogSingleChannelReader
+from typing import List
+import pandas as pd
 
 # Constants
 DEVICE_NAME = "cDAQ1Mod3"
@@ -17,10 +19,10 @@ ACQ_DURATION = .1 * 60                # DAQ task duration in sec
 def daq_reader(q, task):
     print("DAQ Reader start")
     reader = AnalogSingleChannelReader(task.in_stream)
-    buffer = np.zeros((100000,))
+    buffer = np.zeros((10,))
     start_time = time.time()
     while time.time() - start_time < ACQ_DURATION:
-        n = reader.read_many_sample(buffer)
+        n = reader.read_many_sample(buffer, number_of_samples_per_channel=10)
         ts = perf_counter_ns()
         q.put_nowait((ts, n, buffer[:n]))
     q.put_nowait(None)
@@ -46,9 +48,10 @@ def log_data(q, fp):
     while True:
         data = q.get(block=True, timeout=2)
         if data is not None:
-            df = pd.DataFrame(columns=['timestamp', 'sample'], 
-                              data=[[data[0]] * data[1], data[2]])
-            df.to_csv(fp, mode='a')
+            print(data)
+            # df = pd.DataFrame(columns=['timestamp', 'sample'],
+            #                   data=[[data[0]] * data[1], data[2]])
+            # df.to_csv(fp, mode='a')
         else:
             print('Data logger end')
             return
@@ -76,7 +79,7 @@ if __name__ == "__main__":
     log_copy_queue = queue.Queue()
 
     # tuples with (queue, function, function args)
-    copy_queues [log_copy_queue,]
+    copy_queues = [log_copy_queue,]
     worker_functions = [log_data,]
     worker_function_args = [[LOG_FILE_PATH],]
 
@@ -93,7 +96,8 @@ if __name__ == "__main__":
 
     daq_worker.start()
     copy_worker.start()
-    log_worker.start()
+    for w in workers:
+        w.start()
     print("All workers running.")
 
     while not task.is_task_done():
