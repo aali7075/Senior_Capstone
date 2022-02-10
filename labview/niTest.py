@@ -15,7 +15,7 @@ Y_CHANNEL = DEVICE_NAME + "/ai1"   # Physical channel name from NI-MAX
 Z_CHANNEL = DEVICE_NAME + "/ai2"   # Physical channel name from NI-MAX
 
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
-ACQ_DURATION = .5 * 60                # DAQ task duration in sec
+ACQ_DURATION = 5 * 60                # DAQ task duration in sec
 
 def buffer_copy(in_q, out_qs: List[queue.Queue]):
     print("DAQ Copy Start")
@@ -60,7 +60,7 @@ if __name__ == "__main__":
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
     reader = AnalogMultiChannelReader(task.in_stream)
 
-    LOG_FILE_PATH = "lab_2-10-22_aluminum.log"
+    LOG_FILE_PATH = "shield_2-10-22.log"
 
     # Set up threading vars
     daq_out_queue = Queue()
