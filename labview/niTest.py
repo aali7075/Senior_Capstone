@@ -1,7 +1,7 @@
 import nidaqmx
 import time
 import queue
-import threading
+from multiprocessing import Process, Queue
 import numpy as np
 from time import perf_counter_ns
 from nidaqmx.stream_readers import AnalogMultiChannelReader
@@ -60,11 +60,11 @@ if __name__ == "__main__":
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
     reader = AnalogMultiChannelReader(task.in_stream)
 
-    LOG_FILE_PATH = "lab_2-10-22.log"
+    LOG_FILE_PATH = "lab_2-10-22_aluminum.log"
 
     # Set up threading vars
-    daq_out_queue = queue.Queue()
-    log_copy_queue = queue.Queue()
+    daq_out_queue = Queue()
+    log_copy_queue = Queue()
 
     # tuples with (queue, function, function args)
     copy_queues = [log_copy_queue,]
@@ -72,11 +72,11 @@ if __name__ == "__main__":
     worker_function_args = [[LOG_FILE_PATH],]
 
     # daq_worker = threading.Thread(target=daq_reader, args=(daq_out_queue, task))
-    copy_worker = threading.Thread(target=buffer_copy, args=(daq_out_queue, copy_queues))
+    copy_worker = Process(target=buffer_copy, args=(daq_out_queue, copy_queues))
 
     workers = []
     for q, w_f, w_a in zip(copy_queues, worker_functions, worker_function_args):
-        workers.append(threading.Thread(target=w_f, args=(q, *w_a)))
+        workers.append(Process(target=w_f, args=(q, *w_a)))
 
     def daq_reader(task_idx, event_type, num_samples, callback_data=None):
         buf = np.zeros((num_channels, num_samples), dtype=np.float64)
@@ -87,14 +87,17 @@ if __name__ == "__main__":
 
     task.register_every_n_samples_acquired_into_buffer_event(200, daq_reader)
 
-    # Start acquisition and threads
-    task.start()
-    print("Task running.")
-
+    print('Starting workers')
     copy_worker.start()
     for w in workers:
         w.start()
+
+    time.sleep(1 * len(workers)) # give all the workers a little time to spool up
     print("All workers running.")
+
+    # Start acquisition and threads
+    task.start()
+    print("Task running.")
 
     dur_ns = (ACQ_DURATION * 1e9)
     time_start = perf_counter_ns()
@@ -104,13 +107,21 @@ if __name__ == "__main__":
     while t < end_time:
         pct = int(((t - time_start) / dur_ns) * 100)
         if pct > i:
-            print(f'{pct}0% done.')
+            print(f'{pct}% done.')
             i += 1
         t = perf_counter_ns()
         pass # Spin parent thread until task is done
+
     task.stop()
     daq_out_queue.put_nowait(None)
     print("Task is done.")
+
+    print('waiting for workers to finish')
+    while not daq_out_queue.empty():
+        time.sleep(0.1)
+
+    while not all(q.empty() for q in copy_queues):
+        time.sleep(0.1)
 
     print('Joining workers.')
     copy_worker.join()
