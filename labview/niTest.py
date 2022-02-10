@@ -15,7 +15,7 @@ Y_CHANNEL = DEVICE_NAME + "/ai1"   # Physical channel name from NI-MAX
 Z_CHANNEL = DEVICE_NAME + "/ai2"   # Physical channel name from NI-MAX
 
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
-ACQ_DURATION = 2 * 60                # DAQ task duration in sec
+ACQ_DURATION = .5 * 60                # DAQ task duration in sec
 
 def buffer_copy(in_q, out_qs: List[queue.Queue]):
     print("DAQ Copy Start")
@@ -60,7 +60,7 @@ if __name__ == "__main__":
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
     reader = AnalogMultiChannelReader(task.in_stream)
 
-    LOG_FILE_PATH = "lab_log_2.8.22.csv"
+    LOG_FILE_PATH = "lab_2-10-22.log"
 
     # Set up threading vars
     daq_out_queue = queue.Queue()
@@ -83,7 +83,8 @@ if __name__ == "__main__":
         n = reader.read_many_sample(buf, num_samples)
         ts = perf_counter_ns()
         daq_out_queue.put_nowait((ts, n, buf))
-    
+        return 0
+
     task.register_every_n_samples_acquired_into_buffer_event(200, daq_reader)
 
     # Start acquisition and threads
@@ -95,8 +96,17 @@ if __name__ == "__main__":
         w.start()
     print("All workers running.")
 
+    dur_ns = (ACQ_DURATION * 1e9)
     time_start = perf_counter_ns()
-    while perf_counter_ns() < time_start + (ACQ_DURATION * 1000000000):
+    t = perf_counter_ns()
+    end_time = time_start + dur_ns
+    i = 0
+    while t < end_time:
+        pct = int(((t - time_start) / dur_ns) * 100)
+        if pct > i:
+            print(f'{pct}0% done.')
+            i += 1
+        t = perf_counter_ns()
         pass # Spin parent thread until task is done
     task.stop()
     daq_out_queue.put_nowait(None)
