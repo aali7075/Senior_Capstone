@@ -16,7 +16,7 @@ IDE: Pycharm: https://www.jetbrains.com/pycharm/download/#section=windows
 
 Pip3 for windows: https://pip.pypa.io/en/stable/installation/
 
-Check if you already have pip3: ``` pip3 -v ```
+Check if you already have pip3: ``` pip3 --version ```
 
 ### pipenv for package mangement
 We used pipenv for managing our dependicies and makeing sure the correct version of python is running.
