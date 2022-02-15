@@ -25,12 +25,15 @@ To install pipenv: ``` pip3 install --user pipenv ```
 
 Inisde the git repository 
 
+To download dependicies: ``` pipenv install ```
+
 To enter virtual enviroment: ``` pipenv shell ```
 
-To download dependicies: ``` pipenv install ```
 
 
 ## Troubleshooting:
 You may have an issue where you have already installed python and it is taking your newest version instead of python 3.8.10 To fix this search “System variables” in the windows search bar. Then click on environment variables. Change the python path you currently have to the python path where you have python 3.8.10.
+
+You may encounter a problem where you install pipenv and everything went well but Windows says it can't find the command. The virtualenv package and pipenv could be on differnt versions. Look at this: https://stackoverflow.com/questions/46041719/windows-reports-error-when-trying-to-install-package-using-pipenv
 
 
