@@ -21,7 +21,7 @@ Check if you already have pip3: ``` pip3 --version ```
 ### pipenv for package mangement
 We used pipenv for managing our dependicies and makeing sure the correct version of python is running.
 
-To install pipenv: ``` pip install --user pipenv ```
+To install pipenv: ``` pip3 install --user pipenv ```
 
 Inisde the git repository 
 
