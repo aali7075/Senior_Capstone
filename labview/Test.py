@@ -27,7 +27,7 @@ def mockList(lst, lst2): # an array with ten elements
     lst[:]=check # pass by reference for labview
     copy = np.array(lst2)
     lst2[:] = test
-    #print(lst)
+    print(lst)
     return check
 
-#mockList([0,0,0], [1,1,1])
+mockList([0,0,0], [1,1,1])
