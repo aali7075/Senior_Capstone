@@ -6,7 +6,8 @@ import numpy as np
 from time import perf_counter_ns
 from nidaqmx.stream_readers import AnalogMultiChannelReader
 from typing import List
-import pandas as pd
+from datetime import datetime, timedelta
+import itertools
 
 # Constants
 DEVICE_NAME = "cDAQ1Mod3"
@@ -30,17 +31,31 @@ def buffer_copy(in_q, out_qs: List[queue.Queue]):
                 q.put_nowait(None) # send poison pill to all queues
             return
 
-def log_data(q, fp):
+def log_data(q, log_path):
     print('Data logger start')
+    all_data = ['timestamp, z, y, x']
+    ref_time = None
     while True:
         data = q.get(block=True, timeout=2)
         if data is not None:
-            df = pd.DataFrame({'timestamp': data[0], 'x': data[2][0], 'y': data[2][1], 'z': data[2][2]})
-            df.to_csv(fp, mode='a', index=False, header=None)
+
+            if ref_time is None:
+                ref_time = data[0]
+
+            ts = [(data[0] - ref_time) * len(data[2][0])]
+            zipped_data_chunk = map(lambda line: ', '.join(str(x) for x in line), zip(ts, *data[2]))
+            all_data = itertools.chain(all_data, zipped_data_chunk)
+
+            # z = data[2][0]
+            # y = data[2][1]
+            # x = data[2][2]
+
         else:
+            print('Writing all collected data')
+            with open(log_path, 'a') as fp:
+                fp.write('\n'.join(all_data))
             print('Data logger end')
             return
-
 
 # Main program
 if __name__ == "__main__":
@@ -60,7 +75,9 @@ if __name__ == "__main__":
                                     sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS)
     reader = AnalogMultiChannelReader(task.in_stream)
 
-    LOG_FILE_PATH = "shield_2-10-22.log"
+    nw = datetime.now()
+    end_time = nw + timedelta(minutes=5)
+    log_path = f"C:/Users/Lab/Documents/logs/lab_{nw.strftime('%Y-%m-%dT%H-%M-%S')}.csv"
 
     # Set up threading vars
     daq_out_queue = Queue()
@@ -69,7 +86,7 @@ if __name__ == "__main__":
     # tuples with (queue, function, function args)
     copy_queues = [log_copy_queue,]
     worker_functions = [log_data,]
-    worker_function_args = [[LOG_FILE_PATH],]
+    worker_function_args = [[log_path],]
 
     # daq_worker = threading.Thread(target=daq_reader, args=(daq_out_queue, task))
     copy_worker = Process(target=buffer_copy, args=(daq_out_queue, copy_queues))
