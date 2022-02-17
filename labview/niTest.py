@@ -8,6 +8,8 @@ from nidaqmx.stream_readers import AnalogMultiChannelReader
 from typing import List
 from datetime import datetime, timedelta
 import itertools
+import requests
+import json
 
 # Constants
 DEVICE_NAME = "cDAQ1Mod3"
@@ -76,8 +78,11 @@ if __name__ == "__main__":
     reader = AnalogMultiChannelReader(task.in_stream)
 
     nw = datetime.now()
-    end_time = nw + timedelta(minutes=5)
-    log_path = f"C:/Users/Lab/Documents/logs/lab_{nw.strftime('%Y-%m-%dT%H-%M-%S')}.csv"
+    acq_end = nw + timedelta(seconds=int(ACQ_DURATION))
+    filename_date_format = '%Y-%m-%dT%H-%M-%S'
+    start_file = nw.strftime(filename_date_format)
+    end_file = acq_end.strftime(filename_date_format)
+    log_path = f"C:/Users/Lab/Documents/logs/lab_{start_file}__{end_file}.csv"
 
     # Set up threading vars
     daq_out_queue = Queue()
@@ -147,3 +152,28 @@ if __name__ == "__main__":
 
     print('Closing task.')
     task.close()
+
+
+    print("Pinging USGS Boulder API")
+    api_date_format = '%Y-%m-%dT%H:%M:%S.000Z'
+    start = nw.strftime(api_date_format)
+    end = acq_end.strftime(api_date_format)
+    params = {
+        'elements': 'X,Y,Z',
+        'endtime': end,
+        'starttime': start,
+        'format': 'json',
+        'id': 'BOU',
+        'sampling_period': 1,
+        'type': 'adjusted'
+    }
+    api_url = f'https://geomag.usgs.gov/ws/data/'
+    res = requests.get(api_url, params)
+
+    usgs_path = f'C:/Users/Lab/Documents/logs/usgs_{start_file}__{end_file}.json'
+    with open(usgs_path, 'w') as fp:
+        if res.status_code == 200:
+            fp.write(res.text)
+        else:
+            fp.write('{"error": ' + res.status_code + '}')
+
