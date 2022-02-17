@@ -153,6 +153,8 @@ if __name__ == "__main__":
     print('Closing task.')
     task.close()
 
+    print('Waiting 1 minute for USGS data to catch up')
+    time.sleep(60)
 
     print("Pinging USGS Boulder API")
     api_date_format = '%Y-%m-%dT%H:%M:%S.000Z'
@@ -173,7 +175,8 @@ if __name__ == "__main__":
     usgs_path = f'C:/Users/Lab/Documents/logs/usgs_{start_file}__{end_file}.json'
     with open(usgs_path, 'w') as fp:
         if res.status_code == 200:
+            print('Successfully got USGS data, writing to file...')
             fp.write(res.text)
         else:
+            print('Failed to get USGS data...')
             fp.write('{"error": ' + res.status_code + '}')
-
