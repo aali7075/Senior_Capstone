@@ -61,6 +61,10 @@ class Magnetometer:
         print("Magnetometer ready to start reading!")
 
     def __del__(self):
+        """
+
+        :return: test
+        """
         self.close()
 
     def close(self):
@@ -73,6 +77,7 @@ class Magnetometer:
         """ Starts reading, logging, and passing data to any additional consumers
 
         :param log_filename: Optional name of log file
+        :return: Path to log file
         """
 
         if self.running:
@@ -96,6 +101,8 @@ class Magnetometer:
 
         self.running = True
         print(f"Started magnetometer reading! Logging to {log_filename}")
+
+        return log_filename
 
     def stop(self):
         """Stops magnetometer reading and logging, and sends poison pill to all consumers"""
