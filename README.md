@@ -30,6 +30,18 @@ To download dependicies: ``` pipenv install ```
 To enter virtual enviroment: ``` pipenv shell ```
 
 
+### Required Hardware
+
+Magnetometer: Mag 612 FluxGate Magnetometer \
+For more info about the magnetometer please look here: https://drive.google.com/file/d/1OGLSczA6ZfqLArzqDdKDe62jSup29FKf/view?usp=sharing
+
+NI Chassis
+
+NI 9263: Output drives the coil to the PCB
+
+NI 9239: Input for the magnetometer
+
+PCB Board: Connect soldered wires to 15 pin connectors, and 15 pin connector to NI 9263 
 
 ## Troubleshooting:
 You may have an issue where you have already installed python and it is taking your newest version instead of python 3.8.10 To fix this search “System variables” in the windows search bar. Then click on environment variables. Change the python path you currently have to the python path where you have python 3.8.10.
