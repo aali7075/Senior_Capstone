@@ -46,5 +46,5 @@ with open(usgs_path, 'w') as fp:
         print('Failed to get USGS data...')
         fp.write('{"error": ' + res.status_code + '}')
 
-plot_log(log_file)
-plot_log_fft(log_file, max_freq=1)
+# plot_log(log_file, True)
+# plot_log_fft(log_file, max_freq=1)

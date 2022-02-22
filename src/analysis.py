@@ -27,7 +27,7 @@ def plot_log(log_path, save=False):
 
     # Display or save file
     if save:
-        plot_path = log_path.replace('.log', '.png')
+        plot_path = log_path.replace('.csv', '.png')
         fig.savefig(plot_path, bbox_inches='tight')
         print(f"Saved plot to {plot_path}")
     else:
@@ -104,7 +104,7 @@ def read_log(log_path):
     """
     # Read data from log file
     df = pd.read_csv(log_path)
-    df.columns = ['time', 'x', 'y', 'z']
+    df.columns = ['time', 'z', 'y', 'z']
 
     # Calculate time range
     start = df.iloc[0]['time']
