@@ -104,16 +104,31 @@ def read_log(log_path):
     """
     # Read data from log file
     df = pd.read_csv(log_path)
-    df.columns = ['time', 'z', 'y', 'z']
+    df.columns = ['time', 'z', 'y', 'x']
+    df['time'] = df['time'] - min(df['time'])  # zero out times
 
-    # Calculate time range
-    start = df.iloc[0]['time']
-    end = df.iloc[-1]['time']
-    duration = (end - start) / 1000000000  # nanoseconds to seconds
+    prev_df = None
+    start_ts = None
+    fixed_dfs = []
+    times = []
+    for ts, wdf in df.groupby('time'):
+        if prev_df is None:
+            prev_df = wdf.copy(deep=True)
+            start_ts = ts
+            continue
 
-    n_batches = len(set(df['time']))
-    duration *= (n_batches + 1) / n_batches  # Correct duration since end time is just the start of the last batch
+        prev_df['time'] = np.linspace(start_ts, ts, num=len(prev_df))
+        fixed_dfs.append(prev_df)
+        prev_df = wdf.copy(deep=True)
+        times.append(ts - start_ts)
+        start_ts = ts
 
-    df['time'] = np.linspace(0, duration, len(df.index))
+    ts = start_ts + np.mean(times)
+    prev_df['time'] = np.linspace(start_ts, ts, num=len(prev_df))
+    fixed_dfs.append(prev_df)
+
+    df = pd.concat(fixed_dfs)
+    df['time'] /= 1_000_000_000  # ns -> s
+    df = df.set_index('time')
 
     return df
