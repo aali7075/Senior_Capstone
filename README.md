@@ -49,3 +49,28 @@ You may have an issue where you have already installed python and it is taking y
 You may encounter a problem where you install pipenv and everything went well but Windows says it can't find the command. The virtualenv package and pipenv could be on differnt versions. Look at this: https://stackoverflow.com/questions/46041719/windows-reports-error-when-trying-to-install-package-using-pipenv
 
 
+## Code Documentation
+
+To get magnetometer readings run main.py
+
+### Main.py
+
+This file creates an instance of the magnetometer class. Which then kicks off the data colleciton
+
+### Magnetometer.py
+
+```python
+   Magnetometer(self, device_name, channel_names=None, sample_rate=200, buffer_size=200, log_path='../logs/')
+```
+
+#### Class variables 
+``` python
+"""
+self.device_name: Name of device in NI MAX
+self.channel_names: Optional, list of channels to use. Default: ["/ai0", "/ai1", "/ai2"]
+sample_rate: Optional, sample rate in hz. Default: 200
+"""
+```
+
+
+
