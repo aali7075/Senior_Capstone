@@ -9,7 +9,7 @@ from typing import List
 from datetime import datetime, timedelta
 import itertools
 import requests
-import json
+import sys
 
 # Constants
 DEVICE_NAME = "cDAQ1Mod3"
@@ -18,7 +18,7 @@ Y_CHANNEL = DEVICE_NAME + "/ai1"   # Physical channel name from NI-MAX
 Z_CHANNEL = DEVICE_NAME + "/ai2"   # Physical channel name from NI-MAX
 
 SAMPLE_RATE = 200               # DAQ sample rate in samples/sec
-ACQ_DURATION = 5 * 60                # DAQ task duration in sec
+ACQ_DURATION = .1 * 60                # DAQ task duration in sec
 
 def buffer_copy(in_q, out_qs: List[queue.Queue]):
     print("DAQ Copy Start")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     filename_date_format = '%Y-%m-%dT%H-%M-%S'
     start_file = nw.strftime(filename_date_format)
     end_file = acq_end.strftime(filename_date_format)
-    log_path = f"C:/Users/Lab/Documents/logs/lab_{start_file}__{end_file}.csv"
+    log_path = f"C:/Users/Lab/Documents/logs/readings/lab_{start_file}__{end_file}.csv"
 
     # Set up threading vars
     daq_out_queue = Queue()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     task.close()
 
     print('Waiting 1 minute for USGS data to catch up')
-    time.sleep(60)
+    time.sleep(5)
 
     print("Pinging USGS Boulder API")
     api_date_format = '%Y-%m-%dT%H:%M:%S.000Z'
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     api_url = f'https://geomag.usgs.gov/ws/data/'
     res = requests.get(api_url, params)
 
-    usgs_path = f'C:/Users/Lab/Documents/logs/usgs_{start_file}__{end_file}.json'
+    usgs_path = f'C:/Users/Lab/Documents/logs/usgs/usgs_{start_file}__{end_file}.json'
     with open(usgs_path, 'w') as fp:
         if res.status_code == 200:
             print('Successfully got USGS data, writing to file...')
