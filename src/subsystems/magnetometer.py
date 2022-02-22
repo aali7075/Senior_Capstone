@@ -164,7 +164,7 @@ class Magnetometer:
 
             if data is not None:
                 # Format and log data
-                df = pd.DataFrame({'timestamp': data[0], 'x': data[2][0], 'y': data[2][1], 'z': data[2][2]})
+                df = pd.DataFrame({'timestamp': data[0], 'z': data[2][0], 'y': data[2][1], 'x': data[2][2]})
                 df.to_csv(filepath, mode='a', index=False, header=False)
             else:
                 # Poison pill, exit loop
