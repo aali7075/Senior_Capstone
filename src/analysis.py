@@ -34,12 +34,8 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
     _df = _df.groupby('second').apply(_sub_sample)
 
-    if agg_func == 'mean':
-        resampled_df = _df.groupby(by=['second', 'sample']).mean()
-    elif agg_func == 'min':
-        resampled_df = _df.groupby(by=['second', 'sample']).min()
-    elif agg_func == 'max':
-        resampled_df = _df.groupby(by=['second', 'sample']).min()
+    if all(f in {'mean', 'min', 'max'} for f in list(agg_func)):
+        resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
     else:
         raise ValueError('agg_func must be one of {"mean", "min", "mean"}')
 
