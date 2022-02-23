@@ -3,6 +3,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
+def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
+    """
+    Aggregates a timeseries of observations into a timeseries of uniform sample rate.
+
+    :param df: Dataframe of observations whose index is the elapsed seconds passed when the observation was recorded.
+    :param sample_rate: Number of samples to aggregate to in each second. (Hz)
+    :param agg_func: Function to aggregate the sub-samples. Default is 'mean', can also be 'min', 'max'
+    :param trim: Defaults to false. Choose to remove the final window from the dataframe if it is not fully saturated
+                 with samples.
+    :return: Re-sampled dataframe.
+    """
+
+    _df = df.copy(deep=True)
+    _df['second'] = _df.index.astype(int)
+
+    _df_list = []
+
+    def _sub_sample(w_df):
+        available_samples = len(w_df)
+        if sample_rate >= available_samples:
+            raise ValueError(f'Cannot aggregate to a higher sample rate than originally provided in current window.\n'
+                             f'Samples in window: {available_samples}, desired sampling rate: {sample_rate}.')
+
+        # Since each interval is 1 second, subtracting the min of the interval gives a parameterization for the sample
+        # observation time in terms of the percentage of how far along it is in the window [0, 1).
+        # Then multiple this percentage by the total samples in the window to get which re-sample it would fall under
+        w_df['sample'] = ((w_df.index - w_df.index.min()) * sample_rate).astype(int)
+        return w_df
+
+    _df = _df.groupby('second').apply(_sub_sample)
+
+    if agg_func == 'mean':
+        resampled_df = _df.groupby(by=['second', 'sample']).mean()
+    elif agg_func == 'min':
+        resampled_df = _df.groupby(by=['second', 'sample']).min()
+    elif agg_func == 'max':
+        resampled_df = _df.groupby(by=['second', 'sample']).min()
+    else:
+        raise ValueError('agg_func must be one of {"mean", "min", "mean"}')
+
+    # if choosing to trim and the last window is not fully saturated
+    if trim and len(resampled_df) != _df['second'].iloc[-1] * sample_rate:
+        return resampled_df[:(len(resampled_df) // sample_rate) * sample_rate]
+    else:
+        return resampled_df
+
+
 def plot_log(log_path, save=False):
     """
     Reads data from log file and plots the data
