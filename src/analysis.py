@@ -83,6 +83,7 @@ def plot_log(log_path, save=False):
     :param log_path: Path to log file
     :param save: Whether to save or display plot. Default: False (display)
     """
+
     # Read data from log file
     df = read_log(log_path)
 
@@ -162,7 +163,7 @@ def plot_log_fft(log_path, save=False, max_freq=60):
 
     # Display or save file
     if save:
-        plot_path = log_path.replace('.log', '_fft.png')
+        plot_path = log_path.replace('.csv', '_fft.png')
         fig.savefig(plot_path, bbox_inches='tight')
         print(f"Saved plot to {plot_path}")
     else:
@@ -202,6 +203,5 @@ def read_log(log_path):
 
     df = pd.concat(fixed_dfs)
     df['time'] /= 1_000_000_000  # ns -> s
-    df = df.set_index('time')
 
     return df
