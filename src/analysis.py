@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
+from datetime import datetime
 
 
 def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
@@ -9,7 +11,7 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
     :param df: Dataframe of observations whose index is the elapsed seconds passed when the observation was recorded.
     :param sample_rate: Number of samples to aggregate to in each second. (Hz)
-    :param agg_func: Function to aggregate the sub-samples. Default is 'mean', can also be 'min', 'max'
+    :param agg_func: Function(s) to aggregate the sub-samples. Default is 'mean', can be a list of any agg functions.
     :param trim: Defaults to false. Choose to remove the final window from the dataframe if it is not fully saturated
                  with samples.
     :return: Re-sampled dataframe.
@@ -64,16 +66,77 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
     _df = _df.groupby('second').apply(_sub_sample)
 
-    if all(f in {'mean', 'min', 'max'} for f in list(agg_func)):
-        resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
-    else:
-        raise ValueError('agg_func must be one of {"mean", "min", "mean"}')
+    resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
 
     # if choosing to trim and the last window is not fully saturated
     if trim and len(resampled_df) != _df['second'].iloc[-1] * sample_rate:
         return resampled_df[:(len(resampled_df) // sample_rate) * sample_rate]
     else:
         return resampled_df
+
+
+def usgs_dataframe(usgs_filepath):
+    """
+    Reads a USGS json data file and returns it as a dataframe with timestamped indices and
+    each row is a recorded channel.
+
+    :param usgs_filepath: Data file to read
+    :return: Dataframe of usgs data
+    """
+    usgs_json = json.load(open(usgs_filepath, 'r'))
+    times = [datetime.strptime(dt[:-5], '%Y-%m-%dT%H:%M:%S') for dt in usgs_json['times']]
+
+    channels = {}
+    for col in usgs_json['values']:
+        channels[col['id']] = col['values']
+
+    return pd.DataFrame(index=times, data=channels)
+
+
+def merge_log_usgs(dt_identifier, sample_rate=240):
+    """
+    Merges datasets from concurrent magnetometer and USGS readings
+    into a single dataframe with constant units and time intervals.
+
+    :param dt_identifier: Experiment date string used to identify which files to load.
+    :param sample_rate: Sample rate to aggregate the magnetometer readings at.
+    :return: Dataframe indexed by elapsed seconds and sample number. Column names prefixed
+             by `USGS - ` are from the USGS dataset. Otherwise, the column is from the magnetometer
+             readings dataset. All values in the dataframe are in terms of micro-Tesla.
+    """
+    log_path = f'../logs/readings/lab/mag_{dt_identifier}.csv'
+    usgs_path = f'../logs/usgs/usgs_{dt_identifier}.json'
+    rdf = resample_dataframe(read_log(log_path), sample_rate, trim=True)
+    udf = usgs_dataframe(usgs_path)
+    udf.columns = [f'USGS - {v}' for v in udf.columns]  # differentiate the column names
+
+    # First, the data collected by the magnetometer needs a scaling factor applied to it
+    # to get the data from V to T.
+    # The scaling factor for the magnetometer is 89 mv/uT -> 8.9e-4 T/V
+    rdf *= 8.9e-4 * 1_000_000  # uT for now...
+
+    # Next, scale the data collected form USGS to be in terms of T. Currently in nT
+    udf *= 1e-9 * 1_000_000 # uT for now...
+
+    # Next, re-index the USGS data s.t. each row is elapsed seconds since the start
+    udf.index = list(range(len(udf)))
+
+    # trim excess seconds from USGS data
+    udf = udf.iloc[:len(rdf.index.levels[0])]
+
+    # join the two data frames on their `second` index (seconds elapsed)
+    merged_df = rdf.reset_index()\
+                   .set_index('second')\
+                   .join(udf, how='left')\
+                   .set_index('sample', append=True)  # re-index on the sample #
+
+    merged_df.index.names = ['second', 'sample']  # fix the index name after the merge
+
+    return merged_df
+
+
+def compute_magnitudes(df, cols):
+    return np.sqrt(np.sum(df[cols] ** 2, axis=1))
 
 
 def plot_log(log_path, save=False):
@@ -106,6 +169,25 @@ def plot_log(log_path, save=False):
         print(f"Saved plot to {plot_path}")
     else:
         fig.show()
+
+
+def fft_signal(signal, sampling_rate):
+    """
+    Simple helper function to compute the fft of a signal with a known sampling rate.
+
+    De-means the signal, then computes the frequency space and frequency amplitudes
+    in terms of input signal density. I.e. if the signal is in volts, the output of the
+    frequency amplitudes will be in units of squared volts.
+
+    :param signal: Signal timeseries to analyze.
+    :param sampling_rate: Sampling rate of the signal, in Hz
+    :return: Tuple of the frequency space and associated frequency amplitudes
+    """
+
+    sig = signal - np.mean(signal)  # de-mean >:(
+    freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
+    fft = np.abs(np.fft.rfft(sig)) ** 2  # a density...
+    return freq, fft
 
 
 def plot_log_fft(log_path, save=False, max_freq=60):
@@ -205,4 +287,4 @@ def read_log(log_path):
     df = pd.concat(fixed_dfs)
     df['time'] /= 1_000_000_000  # ns -> s
 
-    return df
+    return df.set_index('time')

@@ -1,13 +1,21 @@
 import datetime
-import requests
-from subsystems import Magnetometer, Panels
 import time
-import numpy as np
-from analysis import plot_log, plot_log_fft
+import json
+import os
+
+from subsystems import Magnetometer, Panels, get_usgs
+
+
+# set the directory of this path to be the cwd (current working directory)
+# This is done so the task scheduler / cron job can use relative paths instead
+# of absolute paths.
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
 
 
 def record_retrieve():
-    acq_time = .1 * 60
+    acq_time = 5 * 60
     start = datetime.datetime.now()
     end = start + datetime.timedelta(seconds=acq_time)
 
@@ -16,9 +24,9 @@ def record_retrieve():
     end_file = end.strftime(filename_date_format)
 
     device_name = 'cDAQ1Mod3'
-    mag = Magnetometer(device_name, log_path='../logs/readings/lab/')
+    mag = Magnetometer(device_name)
 
-    log_file = mag.start(f'mag_{start_file}__{end_file}.csv')
+    mag.start(f'readings/lab/mag_{start_file}__{end_file}.csv')
     time.sleep(acq_time)
     mag.stop()
     mag.close()
@@ -27,27 +35,14 @@ def record_retrieve():
     time.sleep(5)
 
     print("Pinging USGS Boulder API")
-    api_date_format = '%Y-%m-%dT%H:%M:%S.000Z'
-    params = {
-        'elements': 'X,Y,Z',
-        'endtime': end.strftime(api_date_format),
-        'starttime': start.strftime(api_date_format),
-        'format': 'json',
-        'id': 'BOU',
-        'sampling_period': 1,
-        'type': 'adjusted'
-    }
-    api_url = f'https://geomag.usgs.gov/ws/data/'
-    res = requests.get(api_url, params)
+    usgs_data = get_usgs(channels=['X', 'Y', 'Z'],
+                         start_datetime=start,
+                         end_datetime=end)
 
     usgs_path = f'../logs/usgs/usgs_{start_file}__{end_file}.json'
     with open(usgs_path, 'w') as fp:
-        if res.status_code == 200:
-            print('Successfully got USGS data, writing to file...')
-            fp.write(res.text)
-        else:
-            print('Failed to get USGS data...')
-            fp.write('{"error": ' + res.status_code + '}')
+        print('Successfully got USGS data, writing to file...')
+        fp.write(json.dumps(usgs_data, indent=4))
 
 
 def panels_example():
@@ -77,8 +72,9 @@ def panels_example():
 
 
 if __name__ == '__main__':
-    panels_example()
-    # record_retrieve()
+    record_retrieve()
+
+    # panels_example()
 
     # filename = '../logs/lab_2-10-22.csv'
     # save = False
