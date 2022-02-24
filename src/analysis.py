@@ -9,7 +9,7 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
     :param df: Dataframe of observations whose index is the elapsed seconds passed when the observation was recorded.
     :param sample_rate: Number of samples to aggregate to in each second. (Hz)
-    :param agg_func: Function to aggregate the sub-samples. Default is 'mean', can also be 'min', 'max'
+    :param agg_func: Function(s) to aggregate the sub-samples. Default is 'mean', can be a list of any agg functions.
     :param trim: Defaults to false. Choose to remove the final window from the dataframe if it is not fully saturated
                  with samples.
     :return: Re-sampled dataframe.
@@ -64,10 +64,7 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
     _df = _df.groupby('second').apply(_sub_sample)
 
-    if all(f in {'mean', 'min', 'max'} for f in list(agg_func)):
-        resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
-    else:
-        raise ValueError('agg_func must be one of {"mean", "min", "mean"}')
+    resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
 
     # if choosing to trim and the last window is not fully saturated
     if trim and len(resampled_df) != _df['second'].iloc[-1] * sample_rate:
@@ -105,6 +102,13 @@ def plot_log(log_path, save=False):
         print(f"Saved plot to {plot_path}")
     else:
         fig.show()
+
+
+def fft_signal(signal, sampling_rate):
+    sig = signal - np.mean(signal)
+    freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
+    fft = np.abs(np.fft.rfft(sig)) ** 2
+    return freq, fft
 
 
 def plot_log_fft(log_path, save=False, max_freq=60):
