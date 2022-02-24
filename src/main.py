@@ -1,7 +1,8 @@
 import datetime
 import requests
-from subsystems import Magnetometer
+from subsystems import Magnetometer, Panels
 import time
+import numpy as np
 from analysis import plot_log, plot_log_fft
 
 
@@ -49,8 +50,35 @@ def record_retrieve():
             fp.write('{"error": ' + res.status_code + '}')
 
 
+def panels_example():
+    device_name = 'Dev2'
+    shape = [1, 1, 1]  # for a single panel
+    panels = Panels(device_name, shape)
+
+    # Play a 3 Hz 1.5 amp sin wave at 30 Hz for 10 seconds
+    rate = 30  # Rate at which daq is updating
+    amp = 1.5  # amp of sin wave
+    freq = 3  # freq of sin wave
+    sin = Panels.sin(rate, amp, freq)
+
+    panels.start_loop(sin, rate)
+    time.sleep(10)
+    panels.stop()
+
+    # Sets output to 0V, 1V, ..., 4V every second then stops
+    q = panels.start_listening()
+    for i in range(5):
+        time.sleep(1)
+        q.put_nowait(i)
+    time.sleep(1)
+    panels.stop()
+
+    panels.close()
+
+
 if __name__ == '__main__':
-    record_retrieve()
+    panels_example()
+    # record_retrieve()
 
     # filename = '../logs/lab_2-10-22.csv'
     # save = False
