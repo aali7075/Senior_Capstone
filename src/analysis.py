@@ -144,18 +144,19 @@ def plot_log_fft(log_path, save=False, max_freq=60):
         peak = (freq[peak_index], fft[peak_index])
 
         # Only label peak if it is far enough away from previous peaks
-        new_peak = True
-        threshold = .1  # As a percentage of the graph width
-        for p_x, _ in peaks:
-            if abs(p_x - peak[0]) < threshold * max_freq:
-                new_peak = False
-                break
-        if new_peak:
-            peaks.append(peak)
+        if peak[0] > 0.001:
+            new_peak = True
+            threshold = .1  # As a percentage of the graph width
+            for p_x, _ in peaks:
+                if abs(p_x - peak[0]) < threshold * max_freq:
+                    new_peak = False
+                    break
+            if new_peak:
+                peaks.append(peak)
 
     # Format plot
     for peak in peaks:
-        ax.annotate("(%.2f, %.2f)" % peak, xy=peak, textcoords='data')
+        ax.annotate("(%.2f, %f)" % peak, xy=peak, textcoords='data')
     ax.set_ylabel('Intensity')
     ax.set_xlabel('Frequency (Hz)')
     ax.legend()

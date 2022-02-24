@@ -52,6 +52,7 @@ def record_retrieve():
 if __name__ == '__main__':
     record_retrieve()
 
-    # filename = '../logs/shield_2-10-22.csv'
-    # plot_log(filename, True)
-    # plot_log_fft(filename, True, max_freq=60)
+    # filename = '../logs/lab_2-10-22.csv'
+    # save = False
+    # plot_log(filename, save)
+    # plot_log_fft(filename, save, max_freq=60)
