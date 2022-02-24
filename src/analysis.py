@@ -76,6 +76,13 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
 
 
 def usgs_dataframe(usgs_filepath):
+    """
+    Reads a USGS json data file and returns it as a dataframe with timestamped indices and
+    each row is a recorded channel.
+
+    :param usgs_filepath: Data file to read
+    :return: Dataframe of usgs data
+    """
     usgs_json = json.load(open(usgs_filepath, 'r'))
     times = [datetime.strptime(dt[:-5], '%Y-%m-%dT%H:%M:%S') for dt in usgs_json['times']]
 
@@ -87,6 +94,16 @@ def usgs_dataframe(usgs_filepath):
 
 
 def merge_log_usgs(dt_identifier, sample_rate=240):
+    """
+    Merges datasets from concurrent magnetometer and USGS readings
+    into a single dataframe with constant units and time intervals.
+
+    :param dt_identifier: Experiment date string used to identify which files to load.
+    :param sample_rate: Sample rate to aggregate the magnetometer readings at.
+    :return: Dataframe indexed by elapsed seconds and sample number. Column names prefixed
+             by `USGS - ` are from the USGS dataset. Otherwise, the column is from the magnetometer
+             readings dataset. All values in the dataframe are in terms of Tesla.
+    """
     log_path = f'../logs/readings/lab/mag_{dt_identifier}.csv'
     usgs_path = f'../logs/usgs/usgs_{dt_identifier}.json'
     rdf = resample_dataframe(read_log(log_path), sample_rate, trim=True)
@@ -151,7 +168,19 @@ def plot_log(log_path, save=False):
 
 
 def fft_signal(signal, sampling_rate):
-    sig = signal - np.mean(signal)
+    """
+    Simple helper function to compute the fft of a signal with a known sampling rate.
+
+    De-means the signal, then computes the frequency space and frequency amplitudes
+    in terms of input signal density. I.e. if the signal is in volts, the output of the
+    frequency amplitudes will be in units of squared volts.
+
+    :param signal: Signal timeseries to analyze.
+    :param sampling_rate: Sampling rate of the signal, in Hz
+    :return: Tuple of the frequency space and associated frequency amplitudes
+    """
+
+    sig = signal - np.mean(signal)  # de-mean >:(
     freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
     fft = np.abs(np.fft.rfft(sig)) ** 2  # a density...
     return freq, fft
