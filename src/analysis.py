@@ -102,7 +102,7 @@ def merge_log_usgs(dt_identifier, sample_rate=240):
     :param sample_rate: Sample rate to aggregate the magnetometer readings at.
     :return: Dataframe indexed by elapsed seconds and sample number. Column names prefixed
              by `USGS - ` are from the USGS dataset. Otherwise, the column is from the magnetometer
-             readings dataset. All values in the dataframe are in terms of Tesla.
+             readings dataset. All values in the dataframe are in terms of micro-Tesla.
     """
     log_path = f'../logs/readings/lab/mag_{dt_identifier}.csv'
     usgs_path = f'../logs/usgs/usgs_{dt_identifier}.json'
@@ -113,10 +113,10 @@ def merge_log_usgs(dt_identifier, sample_rate=240):
     # First, the data collected by the magnetometer needs a scaling factor applied to it
     # to get the data from V to T.
     # The scaling factor for the magnetometer is 89 mv/uT -> 8.9e-4 T/V
-    rdf *= 8.9e-4
+    rdf *= 8.9e-4 * 1_000_000  # uT for now...
 
     # Next, scale the data collected form USGS to be in terms of T. Currently in nT
-    udf *= 1e-9
+    udf *= 1e-9 * 1_000_000 # uT for now...
 
     # Next, re-index the USGS data s.t. each row is elapsed seconds since the start
     udf.index = list(range(len(udf)))
@@ -133,6 +133,10 @@ def merge_log_usgs(dt_identifier, sample_rate=240):
     merged_df.index.names = ['second', 'sample']  # fix the index name after the merge
 
     return merged_df
+
+
+def compute_magnitudes(df, cols):
+    return np.sqrt(np.sum(df[cols] ** 2, axis=1))
 
 
 def plot_log(log_path, save=False):
