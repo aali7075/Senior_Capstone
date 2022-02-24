@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
+from datetime import datetime
 
 
 def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
@@ -73,6 +75,49 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
         return resampled_df
 
 
+def usgs_dataframe(usgs_filepath):
+    usgs_json = json.load(open(usgs_filepath, 'r'))
+    times = [datetime.strptime(dt[:-5], '%Y-%m-%dT%H:%M:%S') for dt in usgs_json['times']]
+
+    channels = {}
+    for col in usgs_json['values']:
+        channels[col['id']] = col['values']
+
+    return pd.DataFrame(index=times, data=channels)
+
+
+def merge_log_usgs(dt_identifier, sample_rate=240):
+    log_path = f'../logs/readings/lab/mag_{dt_identifier}.csv'
+    usgs_path = f'../logs/usgs/usgs_{dt_identifier}.json'
+    rdf = resample_dataframe(read_log(log_path), sample_rate, trim=True)
+    udf = usgs_dataframe(usgs_path)
+    udf.columns = [f'USGS - {v}' for v in udf.columns]  # differentiate the column names
+
+    # First, the data collected by the magnetometer needs a scaling factor applied to it
+    # to get the data from V to T.
+    # The scaling factor for the magnetometer is 89 mv/uT -> 8.9e-4 T/V
+    rdf *= 8.9e-4
+
+    # Next, scale the data collected form USGS to be in terms of T. Currently in nT
+    udf *= 1e-9
+
+    # Next, re-index the USGS data s.t. each row is elapsed seconds since the start
+    udf.index = list(range(len(udf)))
+
+    # trim excess seconds from USGS data
+    udf = udf.iloc[:len(rdf.index.levels[0])]
+
+    # join the two data frames on their `second` index (seconds elapsed)
+    merged_df = rdf.reset_index()\
+                   .set_index('second')\
+                   .join(udf, how='left')\
+                   .set_index('sample', append=True)  # re-index on the sample #
+
+    merged_df.index.names = ['second', 'sample']  # fix the index name after the merge
+
+    return merged_df
+
+
 def plot_log(log_path, save=False):
     """
     Reads data from log file and plots the data
@@ -108,7 +153,7 @@ def plot_log(log_path, save=False):
 def fft_signal(signal, sampling_rate):
     sig = signal - np.mean(signal)
     freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
-    fft = np.abs(np.fft.rfft(sig)) ** 2
+    fft = np.abs(np.fft.rfft(sig)) ** 2  # a density...
     return freq, fft
 
 
@@ -209,4 +254,4 @@ def read_log(log_path):
     df = pd.concat(fixed_dfs)
     df['time'] /= 1_000_000_000  # ns -> s
 
-    return df
+    return df.set_index('time')

@@ -13,7 +13,7 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 def record_retrieve():
-    acq_time = 1 * 60
+    acq_time = 5 * 60
     start = datetime.datetime.now()
     end = start + datetime.timedelta(seconds=acq_time)
 
