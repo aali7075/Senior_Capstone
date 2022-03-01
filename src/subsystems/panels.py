@@ -9,37 +9,32 @@ from nidaqmx.constants import AcquisitionType
 
 class Panels:
 
-    def __init__(self, device_name, shape, channels=None):  # TODO: docstring
+    def __init__(self, device_name, shape, channels=None, default_rate=60):  # TODO: docstring
         # Input validation
         if len(shape) != 3:
             raise RuntimeError(f"Panels ERROR: Invalid shape for panels! {shape} should have 3 dimensions")
         if shape[0] not in [1, 2]:
             raise RuntimeError(f"Panels ERROR: Invalid number of panels! shape[0] should be 1 or 2")
+
+        self.n_coils = np.prod(shape)
+
         if channels is not None:
             channels = np.array(channels)
-            if channels.shape != shape:
+            if channels.size != self.n_coils:
                 channels = None
                 print("Panels WARNING: Invalid channels shape! Using default numbering system")
 
         self.device_name = device_name
         self.shape = tuple(shape)
-        self.n_coils = np.prod(shape)
 
-        device = nidaqmx.system.Device(self.device_name)
-        device.reset_device()
+        self.default_rate = default_rate
 
-        # shape = (panels, x, y)
-        self.task = nidaqmx.task.Task(new_task_name='Coils Output')
-        i = 0
-        for panel in range(self.shape[0]):
-            for x in range(self.shape[1]):
-                for y in range(self.shape[2]):
-                    channel_name = channels[i] if channels is not None else f"ao{i}"
-                    self.task.ao_channels.add_ao_voltage_chan(f'{device_name}/{channel_name}')
+        if channels is None:
+            channels = [f"ao{i}" for i in range(self.n_coils)]
+        self.channels = channels
 
-                    i += 1
-
-        self.writer = AnalogMultiChannelWriter(self.task.out_stream)
+        self.device = nidaqmx.system.Device(self.device_name)
+        self.task = None
 
         self.thread = None
         self.running = False
@@ -55,17 +50,38 @@ class Panels:
             self.task.close()
             self.task = None
 
+    def __setup_task(self, rate=-1, samples=0):  # TODO: docstring
+        self.close()
+
+        self.device.reset_device()
+
+        self.task = nidaqmx.task.Task(new_task_name='Coils Output')
+        i = 0
+        for panel in range(self.shape[0]):
+            for x in range(self.shape[1]):
+                for y in range(self.shape[2]):
+                    channel_name = self.channels[i]
+                    self.task.ao_channels.add_ao_voltage_chan(f'{self.device_name}/{channel_name}')
+
+                    i += 1
+
+        self.writer = AnalogMultiChannelWriter(self.task.out_stream)
+
+        if rate > 0:
+            self.task.timing.cfg_samp_clk_timing(rate,
+                                                 sample_mode=AcquisitionType.CONTINUOUS,
+                                                 samps_per_chan=samples)
+
     def start_loop(self, values, rate):  # TODO: docstring
         if self.running:
             print(f"Panels WARNING: Already {'looping' if self.looping else 'listening'}! Cannot start again")
             return
 
         self.thread = threading.Thread(target=self.__loop, args=(values,))
-        self.task.timing.cfg_samp_clk_timing(rate,
-                                             sample_mode=AcquisitionType.CONTINUOUS,
-                                             samps_per_chan=values.shape[1])
+        self.__setup_task(rate, values.shape[1])
 
         self.running = True
+        self.writer.write_many_sample(values)
         self.task.start()
         self.thread.start()
 
@@ -78,9 +94,7 @@ class Panels:
             return
 
         self.thread = threading.Thread(target=self.__listen)
-        # self.task.timing.cfg_samp_clk_timing(rate,
-        #                                      sample_mode=AcquisitionType.CONTINUOUS,
-        #                                      samps_per_chan=1)
+        self.__setup_task()
 
         self.running = True
         self.task.start()
@@ -108,7 +122,9 @@ class Panels:
 
     def __loop(self, values):  # TODO: docstring
         while self.running:
-            self.writer.write_many_sample(values)
+            pass
+            # if self.task.out_stream.open_current_loop_chans_exist:
+            #     print("Open loop!")
 
     def __listen(self):  # TODO: docstring
         initial_values = np.zeros(self.n_coils)
@@ -117,7 +133,7 @@ class Panels:
         while self.running:
             if not self.in_queue.empty():
                 values = np.array(self.in_queue.get_nowait(), dtype=np.float64)
-                if values.shape[0] != self.n_coils:
+                if len(values) != self.n_coils:
                     print("Panels WARNING: Invalid shape in queue! length must be n_coils")
                     continue
 
