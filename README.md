@@ -193,15 +193,15 @@ __log_consumer(filepath, log_queue)
           readings dataset. All values in the dataframe are in terms of Tesla.
    ```
    #### plot_log
-    ``` python
+   ``` python
     plot_log(log_path, save=False):
     Reads data from log file and plots the data
 
     param log_path: Path to log file
     param save: Whether to save or display plot. Default: False (display)
-    ```
+   ```
    #### fft_signal
-    ``` python
+   ``` python
     fft_signal(signal, sampling_rate):
     Simple helper function to compute the fft of a signal with a known sampling rate.
 
@@ -212,16 +212,16 @@ __log_consumer(filepath, log_queue)
     :param signal: Signal timeseries to analyze.
     :param sampling_rate: Sampling rate of the signal, in Hz
     :return: Tuple of the frequency space and associated frequency amplitudes
-    ```
-   #### plot_log
-    ``` python
+   ```
+   #### plot_log_fft
+   ``` python
     plot_log_fft(log_path, save=False, max_freq=60):
     Reads data from log file, computes and plots fft
 
     :param log_path: Path to log file
     :param save: Whether to save or display plot. Default: False (display)
     :param max_freq: Show up to this frequency on plot (Hz).
-    ```
+   ```
 ### Simulation.py and solver.py
 Field equations for creating a magnetic field given by one or more rectangular loops of wire in the same plane \
 Adapted from mathmatica file given by Svenja: https://drive.google.com/file/d/1FrGWrs4JCh3DOKBoIA7Rn8GUHFDU2A24/view?usp=sharing \
