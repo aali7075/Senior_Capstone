@@ -26,7 +26,7 @@ class Magnetometer:
         print("Initializing magnetometer...")
 
         if not os.path.isdir(log_path):
-            raise OSError(f"Invalid log folder! '{log_path}' does not exist!")
+            raise RuntimeError(f"Mag ERROR: Invalid log folder! '{log_path}' does not exist!")
         self.log_path = log_path
 
         self.device_name = device_name
@@ -81,7 +81,7 @@ class Magnetometer:
         """
 
         if self.running:
-            print("WARNING: Magnetometer is already reading! Cannot start again")
+            print("Mag WARNING: Already reading! Cannot start again")
             return
 
         # Setup threads
@@ -108,7 +108,7 @@ class Magnetometer:
         """Stops magnetometer reading and logging, and sends poison pill to all consumers"""
 
         if not self.running:
-            print("WARNING: Magnetometer is not reading! Cannot stop")
+            print("Mag WARNING: Magnetometer is not reading! Cannot stop")
             return
 
         print("Stopping magnetometer reading and logging...")
@@ -164,7 +164,7 @@ class Magnetometer:
 
             if data is not None:
                 # Format and log data
-                df = pd.DataFrame({'timestamp': data[0], 'x': data[2][0], 'y': data[2][1], 'z': data[2][2]})
+                df = pd.DataFrame({'timestamp': data[0], 'z': data[2][0], 'y': data[2][1], 'x': data[2][2]})
                 df.to_csv(filepath, mode='a', index=False, header=False)
             else:
                 # Poison pill, exit loop

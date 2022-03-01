@@ -1,6 +1,142 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import json
+from datetime import datetime
+
+
+def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
+    """
+    Aggregates a timeseries of observations into a timeseries of uniform sample rate.
+
+    :param df: Dataframe of observations whose index is the elapsed seconds passed when the observation was recorded.
+    :param sample_rate: Number of samples to aggregate to in each second. (Hz)
+    :param agg_func: Function(s) to aggregate the sub-samples. Default is 'mean', can be a list of any agg functions.
+    :param trim: Defaults to false. Choose to remove the final window from the dataframe if it is not fully saturated
+                 with samples.
+    :return: Re-sampled dataframe.
+
+    Example, resampling to 240 Hz, removing excess data:
+    >>> df
+                       mean       min       max
+    second sample
+    0      0       1.891775  1.888062  1.895838
+           1       1.890114  1.886317  1.895307
+           2       1.891706  1.887824  1.895460
+           3       1.893070  1.888302  1.896890
+           4       1.892404  1.888322  1.895355
+                     ...       ...       ...
+    298    235     1.926796  1.921590  1.930197
+           236     1.925259  1.921236  1.928926
+           237     1.924941  1.920249  1.929355
+           238     1.925252  1.921475  1.930207
+           239     1.924471  1.921347  1.929047
+
+    >>> resample_dataframe(df, sample_rate=120, agg_func=['min', 'mean', 'max'], trim=True)
+                          z                      ...         x
+                       mean       min       max  ...      mean       min       max
+    second sample                                ...
+    0      0       2.434054  2.432735  2.435856  ... -1.155265 -1.158869 -1.153813
+           1       2.438351  2.436730  2.439159  ... -1.159620 -1.160807 -1.158771
+           2       2.436643  2.434566  2.438289  ... -1.155815 -1.158811 -1.152495
+           3       2.433168  2.432705  2.433764  ... -1.153587 -1.153922 -1.152583
+           4       2.436046  2.434105  2.438172  ... -1.158350 -1.160781 -1.154522
+                     ...       ...       ...  ...       ...       ...       ...
+    298    235     2.432811  2.432433  2.433479  ... -1.110179 -1.110439 -1.109576
+           236     2.435953  2.433901  2.438113  ... -1.114877 -1.117206 -1.110754
+           237     2.437805  2.436395  2.438650  ... -1.114963 -1.115927 -1.112675
+    """
+
+    _df = df.copy(deep=True)
+    _df['second'] = _df.index.astype(int)
+
+    _df_list = []
+
+    def _sub_sample(w_df):
+        available_samples = len(w_df)
+        if sample_rate >= available_samples:
+            raise ValueError(f'Cannot aggregate to a higher sample rate than originally provided in current window.\n'
+                             f'Samples in window: {available_samples}, desired sampling rate: {sample_rate}.')
+
+        # Since each interval is 1 second, subtracting the min of the interval gives a parameterization for the sample
+        # observation time in terms of the percentage of how far along it is in the window [0, 1).
+        # Then multiple this percentage by the total samples in the window to get which re-sample it would fall under
+        w_df['sample'] = ((w_df.index - w_df.index.min()) * sample_rate).astype(int)
+        return w_df
+
+    _df = _df.groupby('second').apply(_sub_sample)
+
+    resampled_df = _df.groupby(by=['second', 'sample']).agg(agg_func)
+
+    # if choosing to trim and the last window is not fully saturated
+    if trim and len(resampled_df) != _df['second'].iloc[-1] * sample_rate:
+        return resampled_df[:(len(resampled_df) // sample_rate) * sample_rate]
+    else:
+        return resampled_df
+
+
+def usgs_dataframe(usgs_filepath):
+    """
+    Reads a USGS json data file and returns it as a dataframe with timestamped indices and
+    each row is a recorded channel.
+
+    :param usgs_filepath: Data file to read
+    :return: Dataframe of usgs data
+    """
+    usgs_json = json.load(open(usgs_filepath, 'r'))
+    times = [datetime.strptime(dt[:-5], '%Y-%m-%dT%H:%M:%S') for dt in usgs_json['times']]
+
+    channels = {}
+    for col in usgs_json['values']:
+        channels[col['id']] = col['values']
+
+    return pd.DataFrame(index=times, data=channels)
+
+
+def merge_log_usgs(dt_identifier, sample_rate=240):
+    """
+    Merges datasets from concurrent magnetometer and USGS readings
+    into a single dataframe with constant units and time intervals.
+
+    :param dt_identifier: Experiment date string used to identify which files to load.
+    :param sample_rate: Sample rate to aggregate the magnetometer readings at.
+    :return: Dataframe indexed by elapsed seconds and sample number. Column names prefixed
+             by `USGS - ` are from the USGS dataset. Otherwise, the column is from the magnetometer
+             readings dataset. All values in the dataframe are in terms of micro-Tesla.
+    """
+    log_path = f'../logs/readings/lab/mag_{dt_identifier}.csv'
+    usgs_path = f'../logs/usgs/usgs_{dt_identifier}.json'
+    rdf = resample_dataframe(read_log(log_path), sample_rate, trim=True)
+    udf = usgs_dataframe(usgs_path)
+    udf.columns = [f'USGS - {v}' for v in udf.columns]  # differentiate the column names
+
+    # First, the data collected by the magnetometer needs a scaling factor applied to it
+    # to get the data from V to T.
+    # The scaling factor for the magnetometer is 89 mv/uT -> 8.9e-4 T/V
+    rdf *= 8.9e-4 * 1_000_000  # uT for now...
+
+    # Next, scale the data collected form USGS to be in terms of T. Currently in nT
+    udf *= 1e-9 * 1_000_000 # uT for now...
+
+    # Next, re-index the USGS data s.t. each row is elapsed seconds since the start
+    udf.index = list(range(len(udf)))
+
+    # trim excess seconds from USGS data
+    udf = udf.iloc[:len(rdf.index.levels[0])]
+
+    # join the two data frames on their `second` index (seconds elapsed)
+    merged_df = rdf.reset_index()\
+                   .set_index('second')\
+                   .join(udf, how='left')\
+                   .set_index('sample', append=True)  # re-index on the sample #
+
+    merged_df.index.names = ['second', 'sample']  # fix the index name after the merge
+
+    return merged_df
+
+
+def compute_magnitudes(df, cols):
+    return np.sqrt(np.sum(df[cols] ** 2, axis=1))
 
 
 def plot_log(log_path, save=False):
@@ -10,6 +146,7 @@ def plot_log(log_path, save=False):
     :param log_path: Path to log file
     :param save: Whether to save or display plot. Default: False (display)
     """
+
     # Read data from log file
     df = read_log(log_path)
 
@@ -27,11 +164,30 @@ def plot_log(log_path, save=False):
 
     # Display or save file
     if save:
-        plot_path = log_path.replace('.log', '.png')
+        plot_path = log_path.replace('.csv', '.png')
         fig.savefig(plot_path, bbox_inches='tight')
         print(f"Saved plot to {plot_path}")
     else:
         fig.show()
+
+
+def fft_signal(signal, sampling_rate):
+    """
+    Simple helper function to compute the fft of a signal with a known sampling rate.
+
+    De-means the signal, then computes the frequency space and frequency amplitudes
+    in terms of input signal density. I.e. if the signal is in volts, the output of the
+    frequency amplitudes will be in units of squared volts.
+
+    :param signal: Signal timeseries to analyze.
+    :param sampling_rate: Sampling rate of the signal, in Hz
+    :return: Tuple of the frequency space and associated frequency amplitudes
+    """
+
+    sig = signal - np.mean(signal)  # de-mean >:(
+    freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
+    fft = np.abs(np.fft.rfft(sig)) ** 2  # a density...
+    return freq, fft
 
 
 def plot_log_fft(log_path, save=False, max_freq=60):
@@ -70,18 +226,19 @@ def plot_log_fft(log_path, save=False, max_freq=60):
         peak = (freq[peak_index], fft[peak_index])
 
         # Only label peak if it is far enough away from previous peaks
-        new_peak = True
-        threshold = .1  # As a percentage of the graph width
-        for p_x, _ in peaks:
-            if abs(p_x - peak[0]) < threshold * max_freq:
-                new_peak = False
-                break
-        if new_peak:
-            peaks.append(peak)
+        if peak[0] > 0.001:
+            new_peak = True
+            threshold = .1  # As a percentage of the graph width
+            for p_x, _ in peaks:
+                if abs(p_x - peak[0]) < threshold * max_freq:
+                    new_peak = False
+                    break
+            if new_peak:
+                peaks.append(peak)
 
     # Format plot
     for peak in peaks:
-        ax.annotate("(%.2f, %.2f)" % peak, xy=peak, textcoords='data')
+        ax.annotate("(%.2f, %f)" % peak, xy=peak, textcoords='data')
     ax.set_ylabel('Intensity')
     ax.set_xlabel('Frequency (Hz)')
     ax.legend()
@@ -89,7 +246,7 @@ def plot_log_fft(log_path, save=False, max_freq=60):
 
     # Display or save file
     if save:
-        plot_path = log_path.replace('.log', '_fft.png')
+        plot_path = log_path.replace('.csv', '_fft.png')
         fig.savefig(plot_path, bbox_inches='tight')
         print(f"Saved plot to {plot_path}")
     else:
@@ -104,16 +261,30 @@ def read_log(log_path):
     """
     # Read data from log file
     df = pd.read_csv(log_path)
-    df.columns = ['time', 'x', 'y', 'z']
+    df.columns = ['time', 'z', 'y', 'x']
+    df['time'] = df['time'] - min(df['time'])  # zero out times
 
-    # Calculate time range
-    start = df.iloc[0]['time']
-    end = df.iloc[-1]['time']
-    duration = (end - start) / 1000000000  # nanoseconds to seconds
+    prev_df = None
+    start_ts = None
+    fixed_dfs = []
+    times = []
+    for ts, wdf in df.groupby('time'):
+        if prev_df is None:
+            prev_df = wdf.copy(deep=True)
+            start_ts = ts
+            continue
 
-    n_batches = len(set(df['time']))
-    duration *= (n_batches + 1) / n_batches  # Correct duration since end time is just the start of the last batch
+        prev_df['time'] = np.linspace(start_ts, ts, num=len(prev_df))
+        fixed_dfs.append(prev_df)
+        prev_df = wdf.copy(deep=True)
+        times.append(ts - start_ts)
+        start_ts = ts
 
-    df['time'] = np.linspace(0, duration, len(df.index))
+    ts = start_ts + np.mean(times)
+    prev_df['time'] = np.linspace(start_ts, ts, num=len(prev_df))
+    fixed_dfs.append(prev_df)
 
-    return df
+    df = pd.concat(fixed_dfs)
+    df['time'] /= 1_000_000_000  # ns -> s
+
+    return df.set_index('time')
