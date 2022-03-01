@@ -222,8 +222,12 @@ __log_consumer(filepath, log_queue)
     :param save: Whether to save or display plot. Default: False (display)
     :param max_freq: Show up to this frequency on plot (Hz).
     ```
-### Simulation.py
-Field equations for creating a magnetic field given by one or more rectangular loops of wire in the same plane
-Adapted from mathmatica file given by Svenja: https://drive.google.com/file/d/1FrGWrs4JCh3DOKBoIA7Rn8GUHFDU2A24/view?usp=sharing
-For background info: https://drive.google.com/file/d/1ITCqS9WszL4EksHgJJAhwlwrAfNrGPrn/view?usp=sharing
+### Simulation.py and solver.py
+Field equations for creating a magnetic field given by one or more rectangular loops of wire in the same plane \
+Adapted from mathmatica file given by Svenja: https://drive.google.com/file/d/1FrGWrs4JCh3DOKBoIA7Rn8GUHFDU2A24/view?usp=sharing \
+For background info: https://drive.google.com/file/d/1ITCqS9WszL4EksHgJJAhwlwrAfNrGPrn/view?usp=sharing \
+To minimize the field at a given point we will use a system of linear equations for the panels and solve a zero field.
+![](images/loop_p1.JPG) 
 
+Then we optimize the convex problem using the cvxpy library
+![](images/loop_p2.JPG) 
