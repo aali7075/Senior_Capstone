@@ -222,3 +222,8 @@ __log_consumer(filepath, log_queue)
     :param save: Whether to save or display plot. Default: False (display)
     :param max_freq: Show up to this frequency on plot (Hz).
     ```
+### Simulation.py
+Field equations for creating a magnetic field given by one or more rectangular loops of wire in the same plane
+Adapted from mathmatica file given by Svenja: https://drive.google.com/file/d/1FrGWrs4JCh3DOKBoIA7Rn8GUHFDU2A24/view?usp=sharing
+For background info: https://drive.google.com/file/d/1ITCqS9WszL4EksHgJJAhwlwrAfNrGPrn/view?usp=sharing
+
