@@ -138,6 +138,7 @@ def By(x, y, z, a1, b1, z0, N):
 
     return _k * np.sum([(-1**i) * _z / (_r[i] * (_r[i] + (-1**i) * _c[i])) for i in range(4)], axis=0)
 
+
 def get_coordinates(a1, b1, s, N, x, y):
     # get (x, y) coordinates given spacing between coils, coil sizes,
     # and number of coils s.t. the center of the coils is the origin
