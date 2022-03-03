@@ -33,6 +33,8 @@ def _get_coil_coordinates(a1, b1, s, shape, x, y):
 
     m, n = shape
 
+    f_a = lambda _x: (s * (n - 1) + 2 * x * (n - 1)) / 2.0
+    f_b = lambda _y: (s * (m - 1) + 2 * y * (m - 1)) / 2.0
     f_a1, f_b1 = f_a(a1), f_b(b1)
     #print("f_a1", f_a1, "f_b1", f_b1)
     xx = np.linspace(-1.0 * f_a1, f_a1, num=n) + x
@@ -209,8 +211,8 @@ w2 = {
     'rotation_axis': None, # string, can be one of None, 'x', 'y', 'z' (could replace with int)
     'theta': 0 # float, radians
 }
-lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
-# get_full_b(w1,w2,(1,0,0))
+#lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
+get_full_b(w1,w2,(1,0,0))
 #get_full_b1(lst)
-pls(lst)
+#pls(lst)
 
