@@ -90,8 +90,8 @@ def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis
     x = []
     y = []
     z = []
-    for coil_x in xx:
-        for coil_y in yy:
+    for coil_y in yy:
+        for coil_x in xx:
 
             # move each measurement s.t. the coil is at 0, 0, 0 and the measurement is relative to that
             x_q = p[0] - coil_x

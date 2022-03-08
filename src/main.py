@@ -4,6 +4,7 @@ import json
 import os
 
 from subsystems import Magnetometer, Panels, get_usgs
+from simulation import FieldNuller
 
 
 # set the directory of this path to be the cwd (current working directory)
@@ -69,6 +70,36 @@ def panels_example():
     panels.stop()
 
     panels.close()
+
+
+def cancel_fields():
+    mag_device = "cDaq1Mod3"
+    panels_device = "cDaq1Mod4"
+
+    logging_path = "readings/lab/"
+    mag = Magnetometer(mag_device, logging_path)
+
+    shape = [2, 2, 1]
+    panels = Panels(panels_device, shape)
+
+    coil_size = (.040, .040)  # meters
+    coil_spacing = 0.00254  # meters
+    wall_spacing = 0.047 # meters
+    max_current = 1  # amps
+    nuller = FieldNuller(shape, coil_size, coil_spacing, wall_spacing, max_current)
+
+    measurement_point = (0, 0, 0)
+    nuller.set_point(measurement_point)
+    mag.start()
+    q = panels.start_listening()
+
+    readings = None
+    running = True
+    while running:
+        # readings = mag.get_running_average() # TODO: add this function
+        q.put_nowait(nuller.solve(readings))
+
+        # TODO: add rate control (run loop at certain hz)
 
 
 if __name__ == '__main__':
