@@ -128,7 +128,7 @@ def get_full_b(wall1, wall2, p):
     b2 = _panel_b(*w2_center, w2_shape, w2_a1, w2_b1, w2_coil_spacing, *p, w2_rx, w2_theta)
 
     b = np.concatenate([b1, b2], axis=1)
-    print("b original is", b)
+    #print("b original is", b)
     return b
 
 def pls(lst):
