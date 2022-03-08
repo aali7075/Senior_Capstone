@@ -1,6 +1,6 @@
 import numpy as np
 
-from field_constants import field_x, field_y, field_z
+from .field_constants import field_x, field_y, field_z
 
 
 def _rotation_matrix(theta, u):
@@ -32,6 +32,10 @@ def _get_coil_coordinates(a1, b1, s, shape, x, y):
     """
 
     m, n = shape
+    m = int(m)
+    n = int(n)
+    f_a = lambda _x: (s * (n - 1) + 2 * x * (n - 1)) / 2.0
+    f_b = lambda _y: (s * (m - 1) + 2 * y * (m - 1)) / 2.0
 
     f_a1, f_b1 = f_a(a1), f_b(b1)
     #print("f_a1", f_a1, "f_b1", f_b1)
