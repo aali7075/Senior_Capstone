@@ -38,23 +38,23 @@ def _eval_c(_x, _y, _z, _a1, _b1, _z0):
     return [c(_x, _y, _z, _a1, _b1, _z0) for c in _c]
 
 
-def field_x(point, a1, b1, z0, current):
+def field_x(x, y, z, a1, b1, z0, N):
     """
     Magnetic flux density in X direction at point (x, y, z) for a
     coil of size 2*a1, 2*b1 residing on the x, y plane defined by z0
 
-    :param point: location of measuring point in meters: (x, y, z)
-    :param a1: (half of) coil side x
-    :param b1: (half of) coil side y
+    :param x: x location
+    :param y: y location
+    :param z: z location
+    :param a1: (half of) coil side length A
+    :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param current: current in amps
+    :param N: Current
 
     :return: Magnetic flux density
     """
 
-    x, y, z = point
-
-    k = 100.0 * MU_0 * current / (4 * np.pi)
+    k = 100.0 * MU_0 * N / (4 * np.pi)
     z = z - z0
     r_vals = _eval_r(x, y, z, a1, b1, z0)
     d_vals = _eval_d(x, y, z, a1, b1, z0)
@@ -63,23 +63,23 @@ def field_x(point, a1, b1, z0, current):
                              for i in range(4)], axis=0)
 
 
-def field_y(point, a1, b1, z0, current):
+def field_y(x, y, z, a1, b1, z0, N):
     """
     Magnetic flux density in Y direction at point (x, y, z) for a
     coil of size 2*a1, 2*b1 residing on the x, y plane defined by z0
 
-    :param point: location of measuring point in meters: (x, y, z)
+    :param x: x location
+    :param y: y location
+    :param z: z location
     :param a1: (half of) coil side length A
     :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param current: Current in amps
+    :param N: Current
 
     :return: Magnetic flux density
     """
 
-    x, y, z = point
-
-    k = 100.0 * MU_0 * current / (4 * np.pi)
+    k = 100.0 * MU_0 * N / (4 * np.pi)
     z = z - z0
 
     r_vals = _eval_r(x, y, z, a1, b1, z0)
@@ -89,23 +89,23 @@ def field_y(point, a1, b1, z0, current):
                              for i in range(4)], axis=0)
 
 
-def field_z(point, a1, b1, z0, current):
+def field_z(x, y, z, a1, b1, z0, N):
     """
     Magnetic flux density in Z direction at point (x, y, z) for a
     coil of size 2*a1, 2*b1 residing on the x, y plane defined by z0
 
-    :param point: location of measuring point in meters: (x, y, z)
+    :param x: x location
+    :param y: y location
+    :param z: z location
     :param a1: (half of) coil side length A
     :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param current: Current in amps
+    :param N: Current
 
     :return: Magnetic flux density
     """
 
-    x, y, z = point
-
-    k = 100.0 * MU_0 * current / (4 * np.pi)
+    k = 100.0 * MU_0 * N / (4 * np.pi)
 
     # compute each sub-function once and store result
     r_vals = _eval_r(x, y, z, a1, b1, z0)
