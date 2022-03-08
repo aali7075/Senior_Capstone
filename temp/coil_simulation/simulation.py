@@ -131,66 +131,6 @@ def get_full_b(wall1, wall2, p):
     #print("b original is", b)
     return b
 
-def pls(lst):
-    #lst= np.array(lst)
-    w1_center = (lst[0],lst[1],lst[2]) # wall center (metric)
-    w1_shape = (lst[3],lst[4]) # (rows, columns)
-    w1_a1 = lst[5] # half width (metric)
-    w1_b1 = lst[6] # half height (metric)
-    w1_coil_spacing = lst[7] # spacing between coils (metric)
-    w1_rx = lst[8] # None or 'x', 'y', 'z'
-    w1_theta = lst[9] # angle to rotate around axis (ccw respective to positive axis), radians
-    p =(lst[20],lst[21],lst[22])
-    b1 = _panel_b(*w1_center, w1_shape, w1_a1, w1_b1, w1_coil_spacing, *p, w1_rx, w1_theta)
-    w2_center = (lst[10],lst[11],lst[12])
-    w2_shape = (lst[13],lst[14])
-    w2_a1 = lst[15]
-    w2_b1 = lst[16]
-    w2_coil_spacing = lst[17]
-    w2_rx = lst[18]
-    w2_theta = lst[19]
-
-    b2 = _panel_b(*w2_center, w2_shape, w2_a1, w2_b1, w2_coil_spacing, *p, w2_rx, w2_theta)
-
-    b = np.concatenate([b1, b2], axis=1)
-    b=b.flatten()
-    check = np.zeros((4,3))
-    check = check+3
-    check = check.flatten()
-    #print(check)
-    #lst.append(180)
-    lst[:]=check # pass by reference for labview
-    print(lst)
-    return check
-
-def getFullB1(lst):
-    #print(len(lst))
-    w1_center = (lst[0],lst[1],lst[2]) # wall center (metric)
-    w1_shape = (lst[3],lst[4]) # (rows, columns)
-    w1_a1 = lst[5] # half width (metric)
-    w1_b1 = lst[6] # half height (metric)
-    w1_coil_spacing = lst[7] # spacing between coils (metric)
-    w1_rx = lst[8] # None or 'x', 'y', 'z'
-    w1_theta = lst[9] # angle to rotate around axis (ccw respective to positive axis), radians
-    p =(lst[20],lst[21],lst[22])
-
-    b1 = _panel_b(*w1_center, w1_shape, w1_a1, w1_b1, w1_coil_spacing, *p, w1_rx, w1_theta)
-    #print("b1 is ", b1)
-    w2_center = (lst[10],lst[11],lst[12])
-    w2_shape = (lst[13],lst[14])
-    w2_a1 = lst[15]
-    w2_b1 = lst[16]
-    w2_coil_spacing = lst[17]
-    w2_rx = lst[18]
-    w2_theta = lst[19]
-
-    b2 = _panel_b(*w2_center, w2_shape, w2_a1, w2_b1, w2_coil_spacing, *p, w2_rx, w2_theta)
-
-    b = np.concatenate([b1, b2], axis=1)
-    b=b.flatten()
-    #print("b new is ", b)
-    lst[:]=[0,0,0,0]
-    return 0
 
 w1 = {
     'center': (0, 0, 0), # 3 points, x, y, z (float)
@@ -211,8 +151,5 @@ w2 = {
     'rotation_axis': None, # string, can be one of None, 'x', 'y', 'z' (could replace with int)
     'theta': 0 # float, radians
 }
-#lst = [0,0,0,2,2,.5,.5,.5,-1,0,0,0,0,2,2,.5,.5,.5,-1,0,1,0,0]
 get_full_b(w1,w2,(1,0,0))
-#get_full_b1(lst)
-#pls(lst)
 

@@ -42,7 +42,20 @@ class SimulationTestCase(unittest.TestCase):
         self.assertAlmostEqual(v1,-0.9683241128916278, 7)
         self.assertAlmostEqual(v2,-1.8133092841619112, 7)
         self.assertAlmostEqual(v3,-0.9797568761862816, 7)
-
+    def test_field_y(self):
+        v1 = field_y(1, 1, 1, .5, .5, 0,1)
+        v2 = field_y(1, 1, 1, 1, 1.5, 0,1)
+        v3 = field_y(0, 1, 2, 1, .5, 0,1)
+        self.assertAlmostEqual(v1,-2.015122700136474, 7)
+        self.assertAlmostEqual(v2,-1.2598109986930923, 7)
+        self.assertAlmostEqual(v3,-1.4081034159518173, 7)
+    def test_field_z(self):
+        v1 = field_z(1, 1, 1, .5, .5, 0,1)
+        v2 = field_z(1, 1, 1, 1, 1.5, 0,1)
+        v3 = field_z(0, 1, 2, 1, .5, 0,1)
+        self.assertAlmostEqual(v1,-1.7519478737699548, 7)
+        self.assertAlmostEqual(v2,-0.8298487960926269, 7)
+        self.assertAlmostEqual(v3,-0.9264181201393327, 7)
 
 if __name__ == '__main__':
     unittest.main()
