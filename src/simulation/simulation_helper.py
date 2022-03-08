@@ -38,9 +38,6 @@ def _get_coil_coordinates(a1, b1, s, shape, center):
     xx = np.linspace(-1.0 * f_a1, f_a1, num=m) + center[0]
     yy = np.linspace(-1.0 * f_b1, f_b1, num=n) + center[1]
 
-    print(xx)
-    print(yy)
-
     return xx, yy
 
 
@@ -104,7 +101,7 @@ def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis
             x.append(field_x(x_q, y_q, z_q, a1, b1, 0, 1))
             y.append(field_y(x_q, y_q, z_q, a1, b1, 0, 1))
             z.append(field_z(x_q, y_q, z_q, a1, b1, 0, 1))
-            print(f"b for coil at ({x_q}, {y_q}, {z_q}): [{x[-1]}, {y[-1]}, {z[-1]}]")
+            # print(f"b for coil at ({x_q}, {y_q}, {z_q}): [{x[-1]}, {y[-1]}, {z[-1]}]")
 
     return np.array([x, y, z])
 
@@ -169,7 +166,5 @@ def get_full_b(shape, coil_size, coil_spacing, wall_spacing, point):
         'rotation_axis': None,
         'theta': 0
     }
-    print(wall1)
-    print(wall2)
 
     return get_full_b_from_walls(wall1, wall2, point)

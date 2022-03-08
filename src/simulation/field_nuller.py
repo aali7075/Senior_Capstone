@@ -31,7 +31,7 @@ class FieldNuller:
         print(f"FieldNuller: Point is now {point}.")
         print(self.b_mat)
 
-    def reset_coils(self):
+    def reset_currents(self):
         self.currents = np.zeros(self.n_coils)
 
     def solve(self, readings):
@@ -52,3 +52,6 @@ class FieldNuller:
 
         # return solution
         return self.currents
+
+    def simulate_fields(self):
+        return self.b_mat @ self.currents
