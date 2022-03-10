@@ -48,7 +48,8 @@ class FieldNuller:
         prob = cp.Problem(objective, constraints)
         prob.solve()
 
-        self.currents = np.array(x.value)
+        delta_currents = np.array(x.value)
+        self.currents += delta_currents
 
         # return solution
         return self.currents

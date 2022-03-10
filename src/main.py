@@ -73,18 +73,18 @@ def panels_example():
 
 
 def cancel_fields():
-    mag_device = "cDaq1Mod3"
-    panels_device = "cDaq1Mod4"
+    mag_device = "cDAQ1Mod3"
+    panels_device = "cDAQ1Mod4"
 
-    logging_path = "readings/lab/"
-    mag = Magnetometer(mag_device, logging_path)
+    logging_path = "../logs/temp/"
+    mag = Magnetometer(mag_device, log_path=logging_path)
 
     shape = [2, 2, 1]
     panels = Panels(panels_device, shape)
 
     coil_size = (.040, .040)  # meters
     coil_spacing = 0.00254  # meters
-    wall_spacing = 0.047 # meters
+    wall_spacing = 0.047  # meters
     max_current = 1  # amps
     nuller = FieldNuller(shape, coil_size, coil_spacing, wall_spacing, max_current)
 
@@ -95,16 +95,27 @@ def cancel_fields():
 
     readings = None
     running = True
-    while running:
-        # readings = mag.get_running_average() # TODO: add this function
-        q.put_nowait(nuller.solve(readings))
 
-        # TODO: add rate control (run loop at certain hz)
+    hz = 1
+    rate_period = 1.0/hz
+    start_time = time.time()
+    while running:
+        readings = mag.get_running_average(rate_period)
+        print(readings.shape)
+        currents = nuller.solve(readings)
+        print(currents)
+        q.put_nowait(currents)
+
+        # Loop rate control
+        now = time.time() - start_time
+        next_time = start_time + rate_period + now - (now % rate_period)
+        while time.time() < next_time:
+            pass
 
 
 if __name__ == '__main__':
-    record_retrieve()
-
+    cancel_fields()
+    # record_retrieve()
     # panels_example()
 
     # filename = '../logs/lab_2-10-22.csv'

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import queue
+import collections
 import threading
 import os
 
@@ -14,7 +15,8 @@ from nidaqmx.stream_readers import AnalogMultiChannelReader
 
 
 class Magnetometer:
-    def __init__(self, device_name, channel_names=None, sample_rate=200, buffer_size=200, log_path='../logs/'):
+    def __init__(self, device_name, channel_names=None, sample_rate=50, buffer_size=50,
+                 log_path='../logs/', average_buffer_size=10):
         """ Initializes magnetometer and prepares for reading data
 
         :param device_name: Name of device in NI MAX
@@ -51,12 +53,16 @@ class Magnetometer:
         self.daq_out_queue = queue.Queue()
         self.task.register_every_n_samples_acquired_into_buffer_event(buffer_size, self.__daq_producer)
 
-        # Setup consumer
+        # Setup consumers
         self.log_queue = queue.Queue()
-        self.consumers = [self.log_queue]
+        self.average_queue = queue.Queue()
+        self.consumers = [self.log_queue, self.average_queue]
 
         self.cons_man_thread = None
         self.log_thread = None
+        self.average_thread = None
+
+        self.average_buffer = collections.deque(maxlen=average_buffer_size)
 
         print("Magnetometer ready to start reading!")
 
@@ -89,11 +95,13 @@ class Magnetometer:
             log_filename = f"mag-{datetime.now().strftime('%m_%d_%y-%H_%M_%S')}.log"
         log_filename = self.log_path + log_filename
         self.log_thread = threading.Thread(target=self.__log_consumer, args=(log_filename, self.log_queue))
+        self.average_thread = threading.Thread(target=self.__average_buffer_consumer, args=(self.average_queue,))
         self.cons_man_thread = threading.Thread(target=self.__consumer_manager,
                                                 args=(self.daq_out_queue, self.consumers))
 
         # Start consumers
         self.log_thread.start()
+        self.average_thread.start()
         self.cons_man_thread.start()
 
         # Start producer
@@ -121,6 +129,7 @@ class Magnetometer:
         # Wait for consumers to finish
         self.cons_man_thread.join()
         self.log_thread.join()
+        self.average_thread.join()
 
         self.running = False
         print("Magnetometer stopped!")
@@ -169,3 +178,32 @@ class Magnetometer:
             else:
                 # Poison pill, exit loop
                 done = True
+
+    def __average_buffer_consumer(self, q):
+        done = False
+        while not done:
+            data = q.get(block=True, timeout=2)
+
+            if data is not None:
+                timestamp = data[0]
+                avgs = np.mean(data[2], axis=1)  # [z, y, x]
+                avgs = np.flip(avgs)  # [x, y, z]
+
+                self.average_buffer.append((timestamp, avgs))
+
+            else:
+                done = True
+
+    def get_running_average(self, time_window):
+        time_window *= (10 ** 9)
+        window_start = perf_counter_ns() - time_window
+
+        averages = None
+        for timestamp, avgs in reversed(self.average_buffer):
+            averages = np.concatenate((averages, [avgs]), axis=0) if averages is not None else [avgs]
+
+            if timestamp < window_start:
+                break
+
+        return np.mean(averages, axis=1)
+
