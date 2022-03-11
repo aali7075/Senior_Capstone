@@ -143,10 +143,10 @@ def get_full_b(shape, coil_size, coil_spacing, wall_spacing, point):
     """
 
     # Convert units to cm as get_full_b_from_walls takes cm
-    half_wall_spacing = wall_spacing * 1000 / 2
-    a1 = coil_size[0] * 1000 / 2
-    b1 = coil_size[1] * 1000 / 2
-    coil_spacing *= 1000
+    half_wall_spacing = wall_spacing * 100 / 2
+    a1 = coil_size[0] * 100 / 2
+    b1 = coil_size[1] * 100 / 2
+    coil_spacing *= 100
 
     wall1 = {
         'center': (0, 0, -half_wall_spacing),  # Convert to cm

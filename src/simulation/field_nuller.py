@@ -34,14 +34,16 @@ class FieldNuller:
     def reset_currents(self):
         self.currents = np.zeros(self.n_coils)
 
-    def solve(self, readings):
+    def solve(self, readings, lambda_value=0):
         if self.point is None:
             print("FieldNuller ERROR: Must first set measurement point!")
             return None
 
         # Setup minimization problem
-        x = cp.Variable(self.n_coils)
-        objective = cp.Minimize(cp.norm_inf(self.b_mat @ x - readings))
+        x = cp.Variable(int(self.n_coils))
+        lambd = cp.Parameter(nonneg=True)
+        lambd.value = lambda_value
+        objective = cp.Minimize(cp.norm_inf(self.b_mat @ x - readings) + lambd * cp.norm2(x))
 
         # Re-center constraints using the previous solution
         constraints = [-self.max_current - self.currents <= x, x <= self.max_current - self.currents]

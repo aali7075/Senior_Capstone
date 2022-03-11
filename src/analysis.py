@@ -253,7 +253,7 @@ def plot_log_fft(log_path, save=False, max_freq=60):
         fig.show()
 
 
-def read_log(log_path):
+def read_log(log_path, preserve_batch=False):
     """
     Reads data from log into dataframe and transforms time into seconds
 
@@ -263,12 +263,16 @@ def read_log(log_path):
     df = pd.read_csv(log_path)
     df.columns = ['time', 'z', 'y', 'x']
     df['time'] = df['time'] - min(df['time'])  # zero out times
+    df['batch'] = 0
 
     prev_df = None
     start_ts = None
     fixed_dfs = []
     times = []
-    for ts, wdf in df.groupby('time'):
+    for i, (ts, wdf) in enumerate(iter(df.groupby('time'))):
+        if preserve_batch:
+            wdf['batch'] = i
+
         if prev_df is None:
             prev_df = wdf.copy(deep=True)
             start_ts = ts
