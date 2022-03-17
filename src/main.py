@@ -3,8 +3,12 @@ import time
 import json
 import os
 
+import numpy as np
+
+from analysis import resample_dataframe
 from subsystems import Magnetometer, Panels, get_usgs
 from simulation import FieldNuller
+from diagnostics import coil_impact
 
 
 # set the directory of this path to be the cwd (current working directory)
@@ -111,6 +115,35 @@ def cancel_fields():
         next_time = start_time + rate_period + now - (now % rate_period)
         while time.time() < next_time:
             pass
+
+
+def run_diagnostics():
+    mag_device = "cDAQ1Mod3"
+    panels_device = "cDAQ1Mod4"
+
+    logging_path = "../logs/temp/"
+    mag = Magnetometer(mag_device, log_path=logging_path)
+
+    shape = [2, 2, 1]
+    panels = Panels(panels_device, shape)
+    max_current = 50e-3  # amps
+
+    baseline = resample_dataframe(mag.read_df(seconds=5), sample_rate=120, trim=True)
+    signal = panels.sin(rate=60, amplitude=max_current, frequency=10)
+    num_coils = shape[0] * shape[1] * shape[2]
+    for i in range(num_coils):
+        s = np.zeros(shape=(num_coils, len(signal)))
+        s[i] = signal
+        panels.start_loop(s, 60)
+        panel_readings = resample_dataframe(mag.read_df(seconds=5), sample_rate=120, trim=True)
+        panels.stop()
+        freq, baseline_density, _, coil_density = coil_impact(baseline, panel_readings, 10, 1.5, 120)
+        weights = 1.5 - np.abs(freq - 1.5)
+        weights /= np.sum(weights)
+        impact = (coil_density - baseline_density) @ weights
+        baseline_score = np.std(baseline_density @ weights)
+        print(f'Baseline {baseline_score}')
+        print(f'Panel {i} impact: {impact} -- Working={impact>baseline_score}')
 
 
 if __name__ == '__main__':

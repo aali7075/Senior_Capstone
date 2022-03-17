@@ -8,7 +8,7 @@ import collections
 import threading
 import os
 
-from time import perf_counter_ns
+from time import perf_counter_ns, sleep
 
 import nidaqmx
 from nidaqmx.stream_readers import AnalogMultiChannelReader
@@ -30,6 +30,7 @@ class Magnetometer:
         """
 
         print("Initializing magnetometer...")
+        self.buffer_size = buffer_size
 
         if not os.path.isdir(log_path):
             raise RuntimeError(f"Mag ERROR: Invalid log folder! '{log_path}' does not exist!")
@@ -211,3 +212,29 @@ class Magnetometer:
 
         return np.mean(averages, axis=1)
 
+    def read_df(self, seconds=1):
+        dfs = []
+
+        def _read_to_df(self, task_idx, event_type, n_samples, callback_data=None):
+            buffer = np.zeros((self.n_channels, n_samples), dtype=np.float64)
+            n = self.reader.read_many_sample(buffer, n_samples)
+            ts = perf_counter_ns()
+            # self.daq_out_queue.put_nowait((ts, n, buffer))
+            df = pd.DataFrame({'timestamp': ts, 'z': buffer[0], 'y': buffer[1], 'x': buffer[2]})
+            dfs.append(df)
+            return 0
+
+        self.task.register_every_n_samples_acquired_into_buffer_event(self.buffer_size, _read_to_df)
+
+        # Start producer
+        self.task.start()
+        print(f'starting data collection for {seconds} seconds')
+        s = perf_counter_ns()
+        while ((perf_counter_ns() - s) / 1e9) < 5:
+            sleep(.01)
+        print('finished data collection')
+        self.close()
+
+        df = pd.concat(dfs)
+        df[['x', 'y', 'z']] *= 89.0 * 1e-3 # scaling factor to get tesla from volts
+        return df
