@@ -184,10 +184,11 @@ def fft_signal(signal, sampling_rate):
     :return: Tuple of the frequency space and associated frequency amplitudes
     """
 
-    sig = signal - np.mean(signal)  # de-mean >:(
+    mean = np.mean(signal)
+    sig = signal - mean  # de-mean >:(
     freq = np.fft.rfftfreq(len(sig), d=1.0/sampling_rate)
     fft = np.abs(np.fft.rfft(sig)) ** 2  # a density...
-    return freq, fft
+    return freq, fft, mean
 
 
 def plot_log_fft(log_path, save=False, max_freq=60):

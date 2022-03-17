@@ -15,6 +15,10 @@ from nidaqmx.stream_readers import AnalogMultiChannelReader
 
 
 class Magnetometer:
+
+    SCALING_FACTOR_mV_uT = 89.0 # mV/uT
+    SCALING_FACTOR_T_V = SCALING_FACTOR_mV_uT * 1e-3
+
     def __init__(self, device_name, channel_names=None, sample_rate=50, buffer_size=50,
                  log_path='../logs/', average_buffer_size=10):
         """ Initializes magnetometer and prepares for reading data
