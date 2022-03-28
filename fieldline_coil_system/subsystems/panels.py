@@ -146,10 +146,6 @@ class Panels:
 
         return f"{panel}{coil_index}"
 
-    def write(self, signal, panels=None, repeat=False):
-        if panels is None:
-
-
     @staticmethod
     def sin(rate, amplitude, frequency, offset=0):
         """

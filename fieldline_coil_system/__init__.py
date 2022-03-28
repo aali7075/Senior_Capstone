@@ -5,11 +5,10 @@ import os
 
 import numpy as np
 
-from analysis import resample_dataframe
-from subsystems import Magnetometer, Panels, get_usgs
+from subsystems import Magnetometer, Panels, get_usgs, coil_diagnostics
+from subsystems.analysis import resample_dataframe
+from subsystems.constants import COIL_RESISTANCE, PCB_VOLTAGE_SCALING_FACTOR, MAGNETOMETER_SCALING_FACTOR
 from simulation import FieldNuller
-from diagnostics import coil_impact
-
 
 # set the directory of this path to be the cwd (current working directory)
 # This is done so the task scheduler / cron job can use relative paths instead
@@ -19,8 +18,8 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 
-def record_retrieve():
-    acq_time = 5 * 60
+def record_retrieve(seconds=1):
+    acq_time = seconds * 60
     start = datetime.datetime.now()
     end = start + datetime.timedelta(seconds=acq_time)
 
@@ -48,32 +47,6 @@ def record_retrieve():
     with open(usgs_path, 'w') as fp:
         print('Successfully got USGS data, writing to file...')
         fp.write(json.dumps(usgs_data, indent=4))
-
-
-def panels_example():
-    device_name = 'Dev2'
-    shape = [1, 1, 1]  # for a single panel
-    panels = Panels(device_name, shape)
-
-    # Play a 3 Hz 1.5 amp sin wave at 30 Hz for 10 seconds
-    rate = 30  # Rate at which daq is updating
-    amp = 1.5  # amp of sin wave
-    freq = 3  # freq of sin wave
-    sin = Panels.sin(rate, amp, freq)
-
-    panels.start_loop(sin, rate)
-    time.sleep(10)
-    panels.stop()
-
-    # Sets output to 0V, 1V, ..., 4V every second then stops
-    q = panels.start_listening()
-    for i in range(5):
-        time.sleep(1)
-        q.put_nowait(i)
-    time.sleep(1)
-    panels.stop()
-
-    panels.close()
 
 
 def cancel_fields():
@@ -127,23 +100,42 @@ def run_diagnostics():
     shape = [2, 2, 1]
     panels = Panels(panels_device, shape)
     max_current = 50e-3  # amps
+    daq_frequency = 60  # Hz
+    sin_amplitude = max_current * COIL_RESISTANCE * PCB_VOLTAGE_SCALING_FACTOR  # V = IR
+    target_frequency = 10  # Hz
+    frequency_sweep = 1.5  # Hz
+    sample_rate = 120  # Hz
 
-    baseline = resample_dataframe(mag.read_df(seconds=5), sample_rate=120, trim=True)
-    signal = panels.sin(rate=60, amplitude=max_current, frequency=10)
+    baseline = resample_dataframe(mag.read_df(seconds=5), sample_rate, trim=True)
+    baseline[['x', 'y', 'z']] *= MAGNETOMETER_SCALING_FACTOR
+    signal = panels.sin(daq_frequency, sin_amplitude, target_frequency)  # TODO: convert current to voltage
     num_coils = shape[0] * shape[1] * shape[2]
     for i in range(num_coils):
-        s = np.zeros(shape=(num_coils, len(signal)))
-        s[i] = signal
-        panels.start_loop(s, 60)
-        panel_readings = resample_dataframe(mag.read_df(seconds=5), sample_rate=120, trim=True)
+        all_signals = np.zeros(shape=(num_coils, len(signal)))
+        all_signals[i] = signal
+        panels.start_loop(all_signals, daq_frequency)
+        panel_readings = resample_dataframe(mag.read_df(seconds=5), sample_rate, trim=True)
+        panel_readings[['x', 'y', 'z']] *= MAGNETOMETER_SCALING_FACTOR
         panels.stop()
-        freq, baseline_density, _, coil_density = coil_impact(baseline, panel_readings, 10, 1.5, 120)
-        weights = 1.5 - np.abs(freq - 1.5)
+        freq, baseline_density, _, coil_density = coil_diagnostics(baseline,
+                                                                   panel_readings,
+                                                                   target_frequency,
+                                                                   frequency_sweep,
+                                                                   sample_rate)
+        weights = frequency_sweep - np.abs(freq - frequency_sweep)
         weights /= np.sum(weights)
         impact = (coil_density - baseline_density) @ weights
         baseline_score = np.std(baseline_density @ weights)
         print(f'Baseline {baseline_score}')
         print(f'Panel {i} impact: {impact} -- Working={impact>baseline_score}')
+
+
+def test_coils(voltage=5.0):
+    panels_device = "cDAQ1Mod4"
+    shape = [2, 2, 1]
+    panels = Panels(panels_device, shape)
+    applied_voltage = voltage * PCB_VOLTAGE_SCALING_FACTOR
+    panels.start_loop(values=[applied_voltage] * 4, rate=1)
 
 
 if __name__ == '__main__':

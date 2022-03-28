@@ -6,11 +6,11 @@ import json
 from typing import Optional, List
 import datetime
 
+
 def get_usgs(channels: Optional[List[str]] = None,
              start_datetime: datetime.datetime = None,
              end_datetime: datetime.datetime = None,
              sampling_period: int = 1) -> dict:
-
     if not isinstance(start_datetime, datetime.date):
         print('start_datetime must be a datetime')
         raise ValueError('start_datetime must be a datetime')
