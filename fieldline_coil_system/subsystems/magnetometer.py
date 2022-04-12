@@ -1,3 +1,4 @@
+import random
 from datetime import datetime
 
 import numpy as np
@@ -13,11 +14,10 @@ from time import perf_counter_ns, sleep
 import nidaqmx
 from nidaqmx.stream_readers import AnalogMultiChannelReader
 
+from .constants import MAGNETOMETER_SCALING_FACTOR
+
 
 class Magnetometer:
-
-    SCALING_FACTOR_mV_uT = 89.0 # mV/uT
-    SCALING_FACTOR_T_V = SCALING_FACTOR_mV_uT * 1e-3
 
     def __init__(self, device_name, channel_names=None, sample_rate=50, buffer_size=50,
                  log_path='../logs/', average_buffer_size=10):
@@ -30,12 +30,12 @@ class Magnetometer:
         """
 
         print("Initializing magnetometer...")
-        self.buffer_size = buffer_size
-
         if not os.path.isdir(log_path):
             raise RuntimeError(f"Mag ERROR: Invalid log folder! '{log_path}' does not exist!")
-        self.log_path = log_path
 
+        self.resets = 0
+        self.log_path = log_path
+        self.buffer_size = buffer_size
         self.device_name = device_name
         self.channels = channel_names if channel_names is not None else ["/ai0", "/ai1", "/ai2"]
         self.n_channels = len(self.channels)
@@ -66,6 +66,7 @@ class Magnetometer:
         self.cons_man_thread = None
         self.log_thread = None
         self.average_thread = None
+        self.thread_data = []
 
         self.average_buffer = collections.deque(maxlen=average_buffer_size)
 
@@ -99,14 +100,17 @@ class Magnetometer:
         if log_filename is None:
             log_filename = f"mag-{datetime.now().strftime('%m_%d_%y-%H_%M_%S')}.log"
         log_filename = self.log_path + log_filename
-        self.log_thread = threading.Thread(target=self.__log_consumer, args=(log_filename, self.log_queue))
-        self.average_thread = threading.Thread(target=self.__average_buffer_consumer, args=(self.average_queue,))
+
+        self.add_consumer(self.log_queue, self.__log_consumer, (log_filename, self.log_queue))
+        self.add_consumer(self.average_queue, self.__average_buffer_consumer, (self.average_queue,))
         self.cons_man_thread = threading.Thread(target=self.__consumer_manager,
                                                 args=(self.daq_out_queue, self.consumers))
 
         # Start consumers
-        self.log_thread.start()
-        self.average_thread.start()
+        self.threads = [None] * len(self.thread_data)
+        for i, (thread_func, thread_args) in enumerate(self.thread_data):
+            self.threads[i] = threading.Thread(target=thread_func, args=thread_args)
+            self.threads[i].start()
         self.cons_man_thread.start()
 
         # Start producer
@@ -133,19 +137,24 @@ class Magnetometer:
 
         # Wait for consumers to finish
         self.cons_man_thread.join()
-        self.log_thread.join()
-        self.average_thread.join()
-
+        for thread in self.threads:
+            thread.join()
         self.running = False
         print("Magnetometer stopped!")
 
-    def add_consumer(self, q):
+    def add_consumer(self, q, thread_function, thread_args=None):
         """ Adds a queue to be populated by the producer
 
         :param q: Queue to be populated
+        :param thread_args: Function to run in consumer thread
+        :param thread_function: Function arguments for consumer thread
         """
 
+        if thread_args is None:
+            thread_args = []
+
         self.consumers.append(q)
+        self.thread_data.append((thread_function, thread_args))
 
     def __daq_producer(self, task_idx, event_type, n_samples, callback_data=None):
         buffer = np.zeros((self.n_channels, n_samples), dtype=np.float64)
@@ -158,7 +167,7 @@ class Magnetometer:
     def __consumer_manager(prod_q, cons_qs):
         done = False
         while not done:
-            data = prod_q.get(block=True, timeout=2)
+            data = prod_q.get(block=True, timeout=10)
 
             if data is not None:
                 # Copy data to all queues
@@ -204,37 +213,17 @@ class Magnetometer:
         window_start = perf_counter_ns() - time_window
 
         averages = None
-        for timestamp, avgs in reversed(self.average_buffer):
+        snapshot = reversed(list(self.average_buffer))
+        for timestamp, avgs in snapshot:
             averages = np.concatenate((averages, [avgs]), axis=0) if averages is not None else [avgs]
 
             if timestamp < window_start:
                 break
 
-        return np.mean(averages, axis=1)
+        return np.mean(averages, axis=0)
 
-    def read_df(self, seconds=1):
-        dfs = []
+    def __enter__(self):
+        return self
 
-        def _read_to_df(self, task_idx, event_type, n_samples, callback_data=None):
-            buffer = np.zeros((self.n_channels, n_samples), dtype=np.float64)
-            n = self.reader.read_many_sample(buffer, n_samples)
-            ts = perf_counter_ns()
-            # self.daq_out_queue.put_nowait((ts, n, buffer))
-            df = pd.DataFrame({'timestamp': ts, 'z': buffer[0], 'y': buffer[1], 'x': buffer[2]})
-            dfs.append(df)
-            return 0
-
-        self.task.register_every_n_samples_acquired_into_buffer_event(self.buffer_size, _read_to_df)
-
-        # Start producer
-        self.task.start()
-        print(f'starting data collection for {seconds} seconds')
-        s = perf_counter_ns()
-        while ((perf_counter_ns() - s) / 1e9) < 5:
-            sleep(.01)
-        print('finished data collection')
-        self.close()
-
-        df = pd.concat(dfs)
-        df[['x', 'y', 'z']] *= 89.0 * 1e-3 # scaling factor to get tesla from volts
-        return df
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self

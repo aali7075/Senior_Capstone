@@ -1,5 +1,5 @@
 import numpy as np
-from analysis import *
+from .analysis import *
 #
 #
 # df = read_log('./dataset/mag_2022-02-24T12-15-30__2022-02-24T12-20-30.csv')
@@ -54,13 +54,13 @@ def coil_diagnostics(baseline, coil, freq, freq_sweep, sampling_rate):
     baseline_mag = compute_magnitudes(baseline, ['x', 'y', 'z'])
     coil_mag = compute_magnitudes(coil, ['x', 'y', 'z'])
 
-    baseline_freqs, baseline_dens = fft_signal(baseline_mag, sampling_rate)
+    baseline_freqs, baseline_dens, _ = fft_signal(baseline_mag, sampling_rate)
     baseline_idx = np.where((freq - freq_sweep <= baseline_freqs) &
                             (baseline_freqs <= freq + freq_sweep))[0]
     baseline_freqs = baseline_freqs[baseline_idx]
     baseline_dens = baseline_dens[baseline_idx]
 
-    coil_freqs, coil_dens = fft_signal(coil_mag, sampling_rate)
+    coil_freqs, coil_dens, _ = fft_signal(coil_mag, sampling_rate)
     coil_idx = np.where((freq - freq_sweep <= coil_freqs) &
                         (coil_freqs <= freq + freq_sweep))[0]
     coil_freqs = coil_freqs[coil_idx]

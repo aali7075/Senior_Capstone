@@ -1,3 +1,5 @@
+import queue
+
 import numpy as np
 import threading
 from queue import Queue
@@ -40,6 +42,7 @@ class Panels:
         self.running = False
         self.looping = False
         self.in_queue = Queue()
+        self.loop_thread_update_queue = None
 
     def __del__(self):
         self.close()
@@ -88,6 +91,11 @@ class Panels:
         self.looping = True
         print('Started panels looping...')
 
+    def update_loop(self, values):
+        if not self.running:
+            raise Exception('Panels must be running a loop before being updated.')
+        self.in_queue.put_nowait(values)
+
     def start_listening(self):  # TODO: docstring
         if self.running:
             print(f"Panels WARNING: Already {'looping' if self.looping else 'listening'}! Cannot start again")
@@ -122,9 +130,13 @@ class Panels:
 
     def __loop(self, values):  # TODO: docstring
         while self.running:
-            pass
-            # if self.task.out_stream.open_current_loop_chans_exist:
-            #     print("Open loop!")
+            if not self.in_queue.empty():
+                values = self.in_queue.get_nowait()
+                if len(values) != self.n_coils:
+                    print("Panels WARNING: Invalid shape in queue! length must be n_coils")
+                    continue
+
+                self.writer.write_many_sample(values)
 
     def __listen(self):  # TODO: docstring
         initial_values = np.zeros(self.n_coils)
@@ -133,6 +145,7 @@ class Panels:
         while self.running:
             if not self.in_queue.empty():
                 values = np.array(self.in_queue.get_nowait(), dtype=np.float64)
+                print('VALUES:', values)
                 if len(values) != self.n_coils:
                     print("Panels WARNING: Invalid shape in queue! length must be n_coils")
                     continue
@@ -147,28 +160,28 @@ class Panels:
         return f"{panel}{coil_index}"
 
     @staticmethod
-    def sin(rate, amplitude, frequency, offset=0):
+    def sin(samples, amplitude, frequency, offset=0):
         """
         Generates values following sin wave for use in start_loop
 
-        :param rate: Desired output rate (Hz). Should be significantly higher than freq
+        :param sample: Number of samples per second the DAQ should output
         :param amplitude: Desired amplitude of sin wave (V)
         :param frequency: Desired frequency of sin wave (Hz). Must evenly fit into rate
         :param offset: Optional offset (s)
         :return: values
         """
 
-        if rate < frequency:
-            print("Panels WARNING: rate cannot be lower than frequency")
-            return None
+        # if rate < frequency:
+        #     print("Panels WARNING: rate cannot be lower than frequency")
+        #     return None
 
-        n_samples = float(rate) / frequency
-        if n_samples % 1 != 0:
-            print("Panels WARNING: frequency must fit into rate evenly")
-            return None
+        # n_samples = float(rate) * frequency
+        # if n_samples % 1 != 0:
+        #     print("Panels WARNING: frequency must fit into rate evenly")
+        #     return None
 
-        n_samples = int(n_samples)
-        time = np.linspace(0, 1 / frequency, num=n_samples)
-        values = amplitude * np.sin(2 * np.pi * frequency * (time - offset))
+        # n_samples = int(n_samples)
+        time = np.linspace(0, 1, num=samples)
+        values = amplitude * np.sin(2 * np.pi * (time - offset) * frequency)
 
         return np.expand_dims(values, axis=0)

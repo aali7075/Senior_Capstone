@@ -148,7 +148,7 @@ def plot_log(log_path, save=False):
     """
 
     # Read data from log file
-    df = read_log(log_path)
+    df = read_log(log_path, set_index=False)
 
     # Plot data
     fig, ax = plt.subplots(1, 1)
@@ -201,7 +201,7 @@ def plot_log_fft(log_path, save=False, max_freq=60):
     """
 
     # Read data from log
-    df = read_log(log_path)
+    df = read_log(log_path, set_index=False)
     length = len(df.index)
     spacing = df['time'][1]
 
@@ -220,7 +220,7 @@ def plot_log_fft(log_path, save=False, max_freq=60):
         fft = fft[:max_index]
 
         # Plot FFT
-        ax.plot(freq, fft, label=i)
+        ax.plot(freq[10:], fft[10:], label=i)
 
         # Calculate peak for this dimension
         peak_index = np.argmax(fft)
@@ -254,14 +254,20 @@ def plot_log_fft(log_path, save=False, max_freq=60):
         fig.show()
 
 
-def read_log(log_path, preserve_batch=False):
+def read_log(log_path=None, raw_df=None, preserve_batch=False, set_index=True):
     """
     Reads data from log into dataframe and transforms time into seconds
 
     :param log_path: Path to log file
+    :param raw_df: Raw magnetometer dataframe
+    :param preserve_batch: Flag to preserve the batch number of a set of readings
     """
-    # Read data from log file
-    df = pd.read_csv(log_path)
+    if raw_df is None and log_path is not None:
+        df = pd.read_csv(log_path)
+    elif log_path is None and raw_df is not None:
+        df = raw_df
+    else:
+        raise ValueError('Exactly one of raw_df or log_path must be specified.')
     df.columns = ['time', 'z', 'y', 'x']
     df['time'] = df['time'] - min(df['time'])  # zero out times
     df['batch'] = 0
@@ -292,4 +298,4 @@ def read_log(log_path, preserve_batch=False):
     df = pd.concat(fixed_dfs)
     df['time'] /= 1_000_000_000  # ns -> s
 
-    return df.set_index('time')
+    return df.set_index('time') if set_index else df
