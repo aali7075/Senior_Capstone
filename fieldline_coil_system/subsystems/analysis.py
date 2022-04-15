@@ -191,19 +191,25 @@ def fft_signal(signal, sampling_rate):
     return freq, fft, mean
 
 
-def plot_log_fft(log_path, save=False, max_freq=60):
+def plot_log_fft(log_path, save=False, max_freq=60, demean=False):
     """
     Reads data from log file, computes and plots fft
 
     :param log_path: Path to log file
     :param save: Whether to save or display plot. Default: False (display)
     :param max_freq: Show up to this frequency on plot (Hz).
+    :param demean: Whether to demean the data before the fft. Default: False
     """
 
     # Read data from log
     df = read_log(log_path, set_index=False)
     length = len(df.index)
     spacing = df['time'][1]
+
+    # Demean
+    cols = ['x', 'y', 'z']
+    if demean:
+        df.loc[:, cols] = df.loc[:, cols] - df.loc[:, cols].mean()
 
     # Calculate frequency space and trim to max_freq
     freq = np.fft.rfftfreq(len(df.index), d=spacing)
@@ -214,13 +220,13 @@ def plot_log_fft(log_path, save=False, max_freq=60):
     fig, ax = plt.subplots(1, 1)
     peaks = []
 
-    for i in ['x', 'y', 'z']:
+    for i in cols:
         # Calculate and trim FFT
         fft = np.abs(np.fft.rfft(df[i])) / length
         fft = fft[:max_index]
 
         # Plot FFT
-        ax.plot(freq[10:], fft[10:], label=i)
+        ax.plot(freq, fft, label=i)
 
         # Calculate peak for this dimension
         peak_index = np.argmax(fft)
@@ -248,6 +254,94 @@ def plot_log_fft(log_path, save=False, max_freq=60):
     # Display or save file
     if save:
         plot_path = log_path.replace('.csv', '_fft.png')
+        fig.savefig(plot_path, bbox_inches='tight')
+        print(f"Saved plot to {plot_path}")
+    else:
+        fig.show()
+
+
+def plot_log_fft_multiple(log_path, timestamps, save=False, max_freq=60, demean=True):
+    print("Plotting split fft")
+    master_df = read_log(log_path, set_index=False)
+    dfs = []
+    if int(timestamps[0]) > 0:
+        timestamps = [0] + timestamps
+
+    for i in range(1, len(timestamps)):
+        ts = master_df['time'].sub(timestamps[i]).abs().idxmin()
+        last_ts = master_df['time'].sub(timestamps[i-1]).abs().idxmin()
+        if ts >= len(master_df.index) - 1:
+            ts = last_ts
+            break
+
+        dfs.append(master_df.iloc[last_ts:ts])
+    dfs.append(master_df.iloc[ts:])
+
+    plot_dims = (int((len(dfs)-0.1)/2) + 1, 2)
+    size = 5
+    plot_size = (plot_dims[1] * size, plot_dims[0] * size)
+    fig, axs = plt.subplots(*plot_dims, figsize=plot_size)
+
+    for i, df in enumerate(dfs):
+        index = np.unravel_index(i, plot_dims) if plot_dims[0] > 1 else i
+        df.reset_index(inplace=True, drop=True)
+        length = len(df.index)
+        spacing = df['time'][1] - df['time'][0]
+
+        timeframe_string = "[%.2f, %.2f]" % (df['time'][0], df['time'].tail(1).item())
+
+        # Demean
+        cols = ['x', 'y', 'z']
+        if demean:
+            df = df.loc[:, cols] - df.loc[:, cols].mean()
+
+        # Calculate frequency space and trim to max_freq
+        freq = np.fft.rfftfreq(len(df.index), d=spacing)
+        max_index = np.argmax(freq > max_freq)
+        if max_index == 0:
+            max_index = len(df.index) - 1
+        freq = freq[:max_index]
+
+        # Init plotting variables
+        peaks = []
+
+        for c in cols:
+            # Calculate and trim FFT
+            fft = np.abs(np.fft.rfft(df[c])) / length
+            fft = fft[:max_index]
+
+            # Plot FFT
+            axs[index].plot(freq, fft, label=c)
+            axs[index].set_title(f"Timeframe: {timeframe_string}")
+
+            # Calculate peak for this dimension
+            peak_index = np.argmax(fft)
+            peak = (freq[peak_index], fft[peak_index])
+
+            # Only label peak if it is far enough away from previous peaks
+            if peak[0] > 0.001:
+                new_peak = True
+                threshold = .1  # As a percentage of the graph width
+                for p_i, (p_x, p_y) in enumerate(peaks):
+                    if abs(p_x - peak[0]) < threshold * max_freq:
+                        if peak[1] > p_y:
+                            peaks[p_i] = peak
+                        new_peak = False
+                        break
+                if new_peak:
+                    peaks.append(peak)
+
+        # Format plot
+        for peak in peaks:
+            axs[index].annotate("(%.2f, %f)" % peak, xy=peak, textcoords='data')
+        axs[index].set_ylabel('Intensity')
+        axs[index].set_xlabel('Frequency (Hz)')
+        axs[index].legend()
+        fig.set_tight_layout(True)
+
+    # Display or save file
+    if save:
+        plot_path = log_path.replace('.log', '_fft.png')
         fig.savefig(plot_path, bbox_inches='tight')
         print(f"Saved plot to {plot_path}")
     else:

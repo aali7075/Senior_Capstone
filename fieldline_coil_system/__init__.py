@@ -207,7 +207,7 @@ def run_diagnostics():
 
         print(f'\tBaseline {baseline_score}')
         print(f'\tPanel {i} impact: {impact} -- Working={impact>baseline_score}')
-    plot_log_fft(log_path)
+    plot_log_fft_multiple(log_path, panel_start_times)
 
 
 def test_coils(current: Union[int, float] = 5.0, panels=None):
