@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import json
 from datetime import datetime
+# from .constants import MAGNETOMETER_SCALING_FACTOR
 
 
 def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
@@ -55,8 +56,9 @@ def resample_dataframe(df, sample_rate, agg_func='mean', trim=False):
     def _sub_sample(w_df):
         available_samples = len(w_df)
         if sample_rate >= available_samples:
-            raise ValueError(f'Cannot aggregate to a higher sample rate than originally provided in current window.\n'
-                             f'Samples in window: {available_samples}, desired sampling rate: {sample_rate}.')
+            print('warning -- upsampling')
+            # raise ValueError(f'Cannot aggregate to a higher sample rate than originally provided in current window.\n'
+            #                  f'Samples in window: {available_samples}, desired sampling rate: {sample_rate}.')
 
         # Since each interval is 1 second, subtracting the min of the interval gives a parameterization for the sample
         # observation time in terms of the percentage of how far along it is in the window [0, 1).
@@ -135,7 +137,7 @@ def compute_magnitudes(df, cols):
     return np.sqrt(np.sum(df[cols] ** 2, axis=1))
 
 
-def plot_log(log_path, save=False):
+def plot_log(log_path, save=False, tesla=False):
     """
     Reads data from log file and plots the data
 
@@ -146,17 +148,35 @@ def plot_log(log_path, save=False):
     # Read data from log file
     df = read_log(log_path, set_index=False)
 
-    # Plot data
-    fig, ax = plt.subplots(1, 1)
+    if tesla:
+        # Plot data
+        MAGNETOMETER_SCALING_FACTOR = 3.6e-5  # Tesla / Volt
+        df['x']= df['x'] * MAGNETOMETER_SCALING_FACTOR
+        df['y'] = df['y'] * MAGNETOMETER_SCALING_FACTOR
+        df['z'] = df['z'] * MAGNETOMETER_SCALING_FACTOR
+        fig, ax = plt.subplots(1, 1)
 
-    ax.plot(df['time'], df['x'], label='x')
-    ax.plot(df['time'], df['y'], label='y')
-    ax.plot(df['time'], df['z'], label='z')
+        ax.plot(df['time'], df['x'], label='x')
+        ax.plot(df['time'], df['y'], label='y')
+        ax.plot(df['time'], df['z'], label='z')
 
-    ax.set_ylabel('Signal (V)')
-    ax.set_xlabel('Time (s)')
-    ax.legend()
-    fig.set_tight_layout(True)
+        ax.set_ylabel('Signal (T)')
+        ax.set_xlabel('Time (s)')
+        ax.legend()
+        fig.set_tight_layout(True)
+    else:
+
+        # Plot data
+        fig, ax = plt.subplots(1, 1)
+
+        ax.plot(df['time'], df['x'], label='x')
+        ax.plot(df['time'], df['y'], label='y')
+        ax.plot(df['time'], df['z'], label='z')
+
+        ax.set_ylabel('Signal (V)')
+        ax.set_xlabel('Time (s)')
+        ax.legend()
+        fig.set_tight_layout(True)
 
     # Display or save file
     if save:

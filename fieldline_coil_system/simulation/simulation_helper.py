@@ -21,11 +21,11 @@ def _get_coil_coordinates(a1, b1, s, shape, center):
     so they satisfy the distances set by the rectangle width, height, and spacing.
     The coils are positioned such that their combined center is at x, y
 
-    :param a1: Rectangle width (x-direction) (cm)
-    :param b1: Rectangle height (y-direction) (cm)
-    :param s: Spacing between rectangles (cm)
+    :param a1: Rectangle width (x-direction) (meters)
+    :param b1: Rectangle height (y-direction) (meters)
+    :param s: Spacing between rectangles (meters)
     :param shape: Dimensions of coil matrix (x, y)
-    :param center: center of panel (x, y), (cm)
+    :param center: center of panel (x, y), (meters)
 
     :return: Tuple containing x and y
     """
@@ -41,7 +41,7 @@ def _get_coil_coordinates(a1, b1, s, shape, center):
     return xx, yy
 
 
-def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis=None, rot_angle=0):
+def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, turns_per_coil, rot_axis=None, rot_angle=0):
     """
 
     :param x_c: Panel center x
@@ -54,6 +54,7 @@ def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis
     :param x_p: Query point x
     :param y_p: Query point y
     :param z_p: Query point z
+    :param turns_per_coil: Number of turns on each individual coil
     :param rot_axis: Axis to rotate the panel around
     :param rot_angle: Angle to rotate the panel, radians
 
@@ -98,24 +99,24 @@ def _panel_b(x_c, y_c, z_c, shape, a1, b1, coil_spacing, x_p, y_p, z_p, rot_axis
             y_q = p[1] - coil_y
             z_q = p[2]
 
-            x.append(field_x(x_q, y_q, z_q, a1, b1, 0, 1))
-            y.append(field_y(x_q, y_q, z_q, a1, b1, 0, 1))
-            z.append(field_z(x_q, y_q, z_q, a1, b1, 0, 1))
+            x.append(field_x(x_q, y_q, z_q, a1, b1, 0, turns_per_coil))
+            y.append(field_y(x_q, y_q, z_q, a1, b1, 0, turns_per_coil))
+            z.append(field_z(x_q, y_q, z_q, a1, b1, 0, turns_per_coil))
             # print(f"b for coil at ({x_q}, {y_q}, {z_q}): [{x[-1]}, {y[-1]}, {z[-1]}]")
 
     return np.array([x, y, z])
 
 
-def get_full_b_from_walls(wall1, wall2, p):
-    # All units in cm
-    w1_center = wall1['center'] # wall center (cm)
+def get_full_b_from_walls(wall1, wall2, turns_per_coil, p):
+    # All units in meters
+    w1_center = wall1['center'] # wall center
     w1_shape = wall1['shape'] # (rows, columns)
     w1_a1 = wall1['a1'] # half width (metric)
     w1_b1 = wall1['b1'] # half height (metric)
     w1_coil_spacing = wall1['coil_spacing'] # spacing between coils (metric)
     w1_rx = wall1['rotation_axis'] # None or 'x', 'y', 'z'
     w1_theta = wall1['theta'] # angle to rotate around axis (ccw respective to positive axis), radians
-    b1 = _panel_b(*w1_center, w1_shape, w1_a1, w1_b1, w1_coil_spacing, *p, w1_rx, w1_theta)
+    b1 = _panel_b(*w1_center, w1_shape, w1_a1, w1_b1, w1_coil_spacing, *p, turns_per_coil, w1_rx, w1_theta)
 
     w2_center = wall2['center']
     w2_shape = wall2['shape']
@@ -124,13 +125,13 @@ def get_full_b_from_walls(wall1, wall2, p):
     w2_coil_spacing = wall2['coil_spacing']
     w2_rx = wall2['rotation_axis']
     w2_theta = wall2['theta']
-    b2 = _panel_b(*w2_center, w2_shape, w2_a1, w2_b1, w2_coil_spacing, *p, w2_rx, w2_theta)
+    b2 = _panel_b(*w2_center, w2_shape, w2_a1, w2_b1, w2_coil_spacing, *p, turns_per_coil, w2_rx, w2_theta)
 
     b = np.concatenate([b1, b2], axis=1)
     return b
 
 
-def get_full_b(shape, coil_size, coil_spacing, wall_spacing, point):
+def get_full_b(shape, coil_size, coil_spacing, wall_spacing, turns_per_coil, point):
     """
     Get the b matrix for a given measurement point
 
@@ -138,18 +139,18 @@ def get_full_b(shape, coil_size, coil_spacing, wall_spacing, point):
     :param coil_size: Tuple of size in meters (x, y)
     :param coil_spacing: Space between coils in meters
     :param wall_spacing: Space between panels in meters
+    :param turns_per_coil: Number of turns on each coil
     :param point: measurement point in meters (x, y, z)
     :return: ndarray of shape ()
     """
 
-    # Convert units to cm as get_full_b_from_walls takes cm
-    half_wall_spacing = wall_spacing * 100 / 2
-    a1 = coil_size[0] * 100 / 2
-    b1 = coil_size[1] * 100 / 2
-    coil_spacing *= 100
+    # Convert units to cm as get_full_b_from_walls
+    half_wall_spacing = wall_spacing / 2
+    a1 = coil_size[0] / 2
+    b1 = coil_size[1] / 2
 
     wall1 = {
-        'center': (0, 0, -half_wall_spacing),  # Convert to cm
+        'center': (0, 0, -half_wall_spacing),
         'shape': shape[1:3],
         'a1': a1,
         'b1': b1,
@@ -167,4 +168,4 @@ def get_full_b(shape, coil_size, coil_spacing, wall_spacing, point):
         'theta': 0
     }
 
-    return get_full_b_from_walls(wall1, wall2, point)
+    return get_full_b_from_walls(wall1, wall2, turns_per_coil, point)

@@ -5,12 +5,13 @@ from .simulation_helper import get_full_b
 
 
 class FieldNuller:
-    def __init__(self, shape, coil_size, coil_spacing, wall_spacing, max_current, point=None):
+    def __init__(self, shape, coil_size, coil_spacing, wall_spacing, turns_per_coil, max_current, point=None):
         self.shape = shape
         self.coil_size = coil_size
         self.coil_spacing = coil_spacing
         self.wall_spacing = wall_spacing
         self.max_current = max_current
+        self.turns_per_coil = turns_per_coil
 
         self.n_coils = np.prod(shape)
         self.currents = np.zeros(self.n_coils)
@@ -27,10 +28,13 @@ class FieldNuller:
             return
 
         self.point = point
-        self.b_mat = get_full_b(self.shape, self.coil_size, self.coil_spacing, self.wall_spacing, point)
+        self.b_mat = get_full_b(self.shape, self.coil_size, self.coil_spacing,
+                                self.wall_spacing, self.turns_per_coil, point)
 
+        print("\n--------------- WARNING -----------------\n")
         print("OVERRIDING COIL 1 TO 0")
         self.b_mat[:,1] = 0.0
+        print("\n--------------- WARNING -----------------\n")
 
         print(f"FieldNuller: Point is now {point}.")
         print(self.b_mat)

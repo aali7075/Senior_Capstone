@@ -49,18 +49,18 @@ def field_x(x, y, z, a1, b1, z0, N):
     :param a1: (half of) coil side length A
     :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param N: Current
+    :param N: Number of turns on the coil
 
-    :return: Magnetic flux density
+    :return: Magnetic flux density (Tesla / Amp)
     """
 
-    k = 100.0 * MU_0 * N / (4 * np.pi)
+    k = MU_0 * N / (4 * np.pi)
     z = z - z0
     r_vals = _eval_r(x, y, z, a1, b1, z0)
     d_vals = _eval_d(x, y, z, a1, b1, z0)
 
     temp = [((-1) ** i) * z / (r_vals[i] * (r_vals[i] + d_vals[i])) for i in range(4)]
-    return 1e5 * k * np.sum(temp, axis=0)
+    return k * np.sum(temp, axis=0)
 
 
 def field_y(x, y, z, a1, b1, z0, N):
@@ -74,19 +74,19 @@ def field_y(x, y, z, a1, b1, z0, N):
     :param a1: (half of) coil side length A
     :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param N: Current
+    :param N: Number of turns
 
-    :return: Magnetic flux density
+    :return: Magnetic flux density (Tesla / Amp)
     """
 
-    k = 100.0 * MU_0 * N / (4 * np.pi)
+    k = MU_0 * N / (4 * np.pi)
     z = z - z0
 
     r_vals = _eval_r(x, y, z, a1, b1, z0)
     c_vals = _eval_c(x, y, z, a1, b1, z0)
 
     temp = [((-1) ** i) * z / (r_vals[i] * (r_vals[i] + ((-1) ** i) * c_vals[i])) for i in range(4)]
-    return 1e5 * k * np.sum(temp, axis=0)
+    return k * np.sum(temp, axis=0)
 
 
 def field_z(x, y, z, a1, b1, z0, N):
@@ -100,12 +100,12 @@ def field_z(x, y, z, a1, b1, z0, N):
     :param a1: (half of) coil side length A
     :param b1: (half of) coil side length B
     :param z0: Distance of coil from origin
-    :param N: Current
+    :param N: Number of turns
 
-    :return: Magnetic flux density
+    :return: Magnetic flux density (Tesla / Amp)
     """
 
-    k = 100.0 * MU_0 * N / (4 * np.pi)
+    k = MU_0 * N / (4 * np.pi)
 
     # compute each sub-function once and store result
     r_vals = _eval_r(x, y, z, a1, b1, z0)
@@ -117,7 +117,7 @@ def field_z(x, y, z, a1, b1, z0, N):
 
     temp = [((-1 ** (i + 1)) * d_vals[i] / (r_vals[i] * (r_vals[i] + ((-1) ** i) * c_vals[i]))) -
             (c_vals[i] / (r_vals[i] * (r_vals[i] - d_vals[i]))) for i in range(4)]
-    return 1e5 * k * np.sum(temp, axis=0)
+    return k * np.sum(temp, axis=0)
 
 
 if __name__ == '__main__':

@@ -10,7 +10,7 @@ import numpy as np
 from .subsystems import analysis
 from .subsystems import Magnetometer, Panels, get_usgs, coil_diagnostics
 from .subsystems.analysis import *
-from .subsystems.constants import RESISTANCE, PCB_INVERSION, MAGNETOMETER_SCALING_FACTOR
+from .subsystems.constants import RESISTANCE, PCB_INVERSION, MAGNETOMETER_SCALING_FACTOR, directory
 from .simulation import FieldNuller
 
 # set the directory of this path to be the cwd (current working directory)
@@ -45,7 +45,7 @@ def record_retrieve(seconds: Union[int, float] = 1.0, usgs: bool = False, plot: 
     device_name = 'cDAQ1Mod3'
     mag = Magnetometer(device_name)
 
-    path_name = f'readings/lab/mag_{start_file}__{end_file}.csv'
+    path_name = f'readings/mag_{start_file}__{end_file}.csv'
     log_file = mag.start(path_name)
     time.sleep(seconds)
     mag.stop()
@@ -53,7 +53,7 @@ def record_retrieve(seconds: Union[int, float] = 1.0, usgs: bool = False, plot: 
 
     print(f'Magnetometer readings saved to: {path_name}')
     if plot:
-        plot_log(log_file)
+        plot_log(log_file,tesla=True)
 
     if usgs:
         print('Waiting a little bit for USGS data to catch up')
@@ -97,11 +97,17 @@ def cancel_fields(hz: int = 10, verbose: bool = True):
     coil_size = (.2, .2)  # meters
     coil_spacing = 0.003  # meters
     wall_spacing = 0.2315  # meters
+    turns_per_coil = 100
     max_current = 45e-3  # amps
-    nuller = FieldNuller(shape, coil_size, coil_spacing, wall_spacing, max_current)
-
     measurement_point = (0, 0.0406, 0)
-    nuller.set_point(measurement_point)
+    nuller = FieldNuller(shape=shape,
+                         coil_size=coil_size,
+                         coil_spacing=coil_spacing,
+                         wall_spacing=wall_spacing,
+                         turns_per_coil=turns_per_coil,
+                         max_current=max_current,
+                         point=measurement_point)
+
     log_path = mag.start()
     q = panels.start_listening()
     running = True
@@ -303,11 +309,11 @@ def test_coils_ac(current: Union[int, float] = 25e-3, hz=10, panels=None):
 
 
 def custom_test():
+    #directory()
     mag_device = "cDAQ1Mod3"
     panels_device = "cDAQ1Mod4"
     logging_path = "../logs/temp/"
 
-    shape = [2, 2, 1]
     current = 25e-3  # amps
     sample_rate = 120  # Hz
     rate_period = 1.0/10.0
@@ -317,18 +323,31 @@ def custom_test():
 
     coil_size = (.2, .2)  # meters
     coil_spacing = 0.003  # meters
+    # coil_spacing = 0.000  # meters
     wall_spacing = 0.2315  # meters
+    # wall_spacing = 0.0  # meters
     max_current = 45e-3  # amps
-    nuller = FieldNuller(shape, coil_size, coil_spacing, wall_spacing, max_current)
-
+    turns_per_coil = 100
     measurement_point = (0, 0.0406, 0)
-    nuller.set_point(measurement_point)
+
+    nuller = FieldNuller(shape=shape,
+                         coil_size=coil_size,
+                         coil_spacing=coil_spacing,
+                         wall_spacing=wall_spacing,
+                         turns_per_coil=turns_per_coil,
+                         max_current=max_current,
+                         point=measurement_point)
 
     q = panels.start_listening()
     applied_voltage = np.zeros(shape=(4,))
     q.put_nowait(applied_voltage)
 
-    with Magnetometer(mag_device, log_path=logging_path) as mag:
+    # use to adjust the orientation of the magnetometer such that the axis of it's x,y,z readings align with the
+    # x,y,z of the simulation.
+    orientation = np.array([[1, 0, 0],
+                            [0, 1, 0],
+                            [0, 0, 1]])
+    with Magnetometer(mag_device, log_path=logging_path, orientation=orientation) as mag:
         log_path = mag.start()
 
         # read ambient field for 5 seconds
@@ -337,7 +356,8 @@ def custom_test():
 
         # The field components we expect to generate at the magnetometer with coil 0
         # at the pre-determined current (Tesla)
-        expected_field_contribution = nuller.b_mat[:, 0] * current
+        currents = np.array([0, 0, current, current])
+        expected_field_contribution = nuller.b_mat @ currents
 
         # get running average over past 1/10 of a second (Tesla)
         readings = mag.get_running_average(0.1)
@@ -347,9 +367,11 @@ def custom_test():
 
         # convert applied currents to voltages and send to DAQ
         print('Creating field')
-        voltage = current * RESISTANCE * PCB_INVERSION[0]
-        q.put_nowait(np.array([voltage, 0, 0, 0]))
+        voltages = currents * RESISTANCE * PCB_INVERSION
+        q.put_nowait(voltages)
         time.sleep(5)
+
+        updated_readings = mag.get_running_average(0.1)
 
     print('Stopping and closing')
     mag.stop()
@@ -363,14 +385,27 @@ def custom_test():
     # Convert readings from volts to Tesla
     mag_df *= MAGNETOMETER_SCALING_FACTOR
 
-    mag_df['x'].plot()
-    plt.axhline(y=expected_agg_field[0], color='gray', linestyle='-.', label=f'Expected x')
-    # plt.axhline(y=expected_agg_field[1], color='gray', linestyle='-.', label=f'Expected y')
-    # plt.axhline(y=expected_agg_field[2], color='gray', linestyle='-.', label=f'Expected z')
+    mag_df[['x', 'y', 'z']].plot()
+    plt.axhline(y=expected_agg_field[0], color='blue', linestyle='-.', label=f'Expected x')
+    plt.axhline(y=expected_agg_field[1], color='orange', linestyle='-.', label=f'Expected y')
+    plt.axhline(y=expected_agg_field[2], color='green', linestyle='-.', label=f'Expected z')
 
-    plt.axhline(y=readings[0], color='r', linestyle='-.', label=f'rx')
+    # plt.axhline(y=readings[0], color='r', linestyle='-.', label=f'rx')
     # plt.axhline(y=readings[1], color='g', linestyle='-.', label=f'ry')
     # plt.axhline(y=readings[2], color='b', linestyle='-.', label=f'rz')
+
+    print('Initial Readings:\t', readings)
+    print('')
+
+    print('Expected Post Readings:\t', expected_agg_field)
+    print('Actual Post Readings:\t', updated_readings)
+    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
+    print('')
+
+    print('Expected Contribution:\t', expected_field_contribution)
+    print('Actual Contribution:\t', updated_readings - readings)
+    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
+    print('')
 
     plt.legend()
     plt.show()

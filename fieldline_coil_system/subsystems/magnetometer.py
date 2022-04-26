@@ -20,7 +20,7 @@ from .constants import MAGNETOMETER_SCALING_FACTOR
 class Magnetometer:
 
     def __init__(self, device_name, channel_names=None, sample_rate=50, buffer_size=50,
-                 log_path='../logs/', average_buffer_size=10):
+                 log_path='../logs/', average_buffer_size=10, orientation=None):
         """ Initializes magnetometer and prepares for reading data
 
         :param device_name: Name of device in NI MAX
@@ -32,6 +32,11 @@ class Magnetometer:
         print("Initializing magnetometer...")
         if not os.path.isdir(log_path):
             raise RuntimeError(f"Mag ERROR: Invalid log folder! '{log_path}' does not exist!")
+
+        if orientation is None:
+            self.orientation = np.eye(3)  # orientation needs to be a unitary matrix
+        else:
+            self.orientation = orientation  # TODO: add check to verify orientation is unitary
 
         self.resets = 0
         self.log_path = log_path
@@ -101,7 +106,7 @@ class Magnetometer:
             log_filename = f"mag-{datetime.now().strftime('%m_%d_%y-%H_%M_%S')}.log"
         log_filename = self.log_path + log_filename
 
-        self.add_consumer(self.log_queue, self.__log_consumer, (log_filename, self.log_queue))
+        self.add_consumer(self.log_queue, self.__log_consumer, (log_filename, self.log_queue, self.orientation))
         self.add_consumer(self.average_queue, self.__average_buffer_consumer, (self.average_queue,))
         self.cons_man_thread = threading.Thread(target=self.__consumer_manager,
                                                 args=(self.daq_out_queue, self.consumers))
@@ -186,7 +191,7 @@ class Magnetometer:
                 done = True
 
     @staticmethod
-    def __log_consumer(filepath, log_queue):
+    def __log_consumer(filepath, log_queue, orientation):
         done = False
 
         log_data = []
@@ -196,10 +201,14 @@ class Magnetometer:
 
             if data is not None:
                 # Format and log data
-                log_data.append(pd.DataFrame({'timestamp': data[0], 'z': data[2][0], 'y': data[2][1], 'x': data[2][2]}))
+                npdata = np.array([data[2][2], data[2][1], data[2][0]]).transpose().dot(orientation)
+                log_data.append(pd.DataFrame({'timestamp': data[0], 'z': npdata[:, 2],
+                                              'y': npdata[:, 1], 'x': npdata[:, 0]}))
             else:
                 # Poison pill, exit loop
-                pd.concat(log_data).to_csv(filepath, index=False, header=False)
+                df = pd.concat(log_data)
+
+                df.to_csv(filepath, index=False, header=False)
                 done = True
 
     def __average_buffer_consumer(self, q):
@@ -229,7 +238,7 @@ class Magnetometer:
             if timestamp < window_start:
                 break
 
-        return np.mean(averages, axis=0) * MAGNETOMETER_SCALING_FACTOR
+        return np.mean(averages, axis=0) * MAGNETOMETER_SCALING_FACTOR @ self.orientation
 
     def __enter__(self):
         return self
