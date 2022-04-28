@@ -308,7 +308,8 @@ def test_coils_ac(current: Union[int, float] = 25e-3, hz=10, panels=None):
     return panels
 
 
-def custom_test():
+def debug_test(coil_idx=0):
+    coil_idx = int(coil_idx)
     #directory()
     mag_device = "cDAQ1Mod3"
     panels_device = "cDAQ1Mod4"
@@ -356,7 +357,8 @@ def custom_test():
 
         # The field components we expect to generate at the magnetometer with coil 0
         # at the pre-determined current (Tesla)
-        currents = np.array([0, 0, current, current])
+        currents = np.zeros(shape=(np.prod(shape),))
+        currents[coil_idx] = current
         expected_field_contribution = nuller.b_mat @ currents
 
         # get running average over past 1/10 of a second (Tesla)
@@ -376,8 +378,30 @@ def custom_test():
     print('Stopping and closing')
     mag.stop()
     panels.stop()
+    time.sleep(5)
     mag.close()
     panels.close()
+
+    print('Initial Readings:\t', readings)
+    print('')
+
+    print('Expected Post Readings:\t', expected_agg_field)
+    print('Actual Post Readings:\t', updated_readings)
+    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
+    print('')
+
+    actual_field_contribution = updated_readings - readings
+    relative_error = (actual_field_contribution - expected_field_contribution) / expected_field_contribution
+
+    print(f'Coil {coil_idx} Expected Contribution:\t', expected_field_contribution)
+    print(f'Coil {coil_idx} Actual Contribution:\t', actual_field_contribution)
+    print(f'Relative X error: {relative_error[0]}')
+    print(f'\t- Correct X direction: {np.sign(relative_error[0])}')
+    print(f'Relative Y error: {relative_error[1]}')
+    print(f'\t- Correct Y direction: {np.sign(relative_error[1])}')
+    print(f'Relative Z error: {relative_error[2]}')
+    print(f'\t- Correct Z direction: {np.sign(relative_error[2])}')
+    print('')
 
     # Read in and normalize magnetometer readings over the experiment (Volts)
     mag_df = resample_dataframe(read_log(log_path), sample_rate, trim=True)[['x', 'y', 'z']]
@@ -394,22 +418,13 @@ def custom_test():
     # plt.axhline(y=readings[1], color='g', linestyle='-.', label=f'ry')
     # plt.axhline(y=readings[2], color='b', linestyle='-.', label=f'rz')
 
-    print('Initial Readings:\t', readings)
-    print('')
-
-    print('Expected Post Readings:\t', expected_agg_field)
-    print('Actual Post Readings:\t', updated_readings)
-    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
-    print('')
-
-    print('Expected Contribution:\t', expected_field_contribution)
-    print('Actual Contribution:\t', updated_readings - readings)
-    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
-    print('')
+    plt.ylabel('Tesla')
+    plt.xlabel('Time (second, sample)')
+    plt.title(f'Coil {coil_idx} Test - {current * 1000:.2f}mA')
 
     plt.legend()
     plt.show()
 
 
 if __name__ == '__main__':
-    custom_test()
+    debug_test()

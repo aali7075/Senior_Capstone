@@ -33,7 +33,7 @@ class FieldNuller:
 
         print("\n--------------- WARNING -----------------\n")
         print("OVERRIDING COIL 1 TO 0")
-        self.b_mat[:,1] = 0.0
+        self.b_mat[:, 1] = 0.0
         print("\n--------------- WARNING -----------------\n")
 
         print(f"FieldNuller: Point is now {point}.")

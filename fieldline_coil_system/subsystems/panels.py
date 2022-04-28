@@ -150,7 +150,7 @@ class Panels:
                     print("Panels WARNING: Invalid shape in queue! length must be n_coils")
                     continue
 
-                self.writer.write_one_sample(values, timeout=WAIT_INFINITELY)
+                self.writer.write_one_sample(values, timeout=0)
 
     def index_to_name(self, index):  # TODO: docstring
         coils_per_panel = self.n_coils / self.shape[0]

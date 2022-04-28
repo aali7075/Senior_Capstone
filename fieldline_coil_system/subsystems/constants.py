@@ -3,8 +3,8 @@ import os
 from .analysis import compute_magnitudes, merge_log_usgs
 
 RESISTANCE = 200  # OHMS
-PCB_INVERSION = np.array([-1.02923, -1.02923, -1.02923, -1.032])  # No units
-MAGNETOMETER_SCALING_FACTOR = 3.6e-4  # Tesla / Volt
+PCB_INVERSION = np.array([-1.02923, -1.02923, -1.02923, -1.032])  # No units, used to tune each channel independently
+MAGNETOMETER_SCALING_FACTOR = 3.6e-5  # Tesla / Volt
 #C:\Users\Lab\Desktop\capstone backup\Senior_Capstone\logs
 
 # mag_files = list(map(lambda x: x.replace('mag_', '').replace('.csv', ''),

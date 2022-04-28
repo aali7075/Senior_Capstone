@@ -207,7 +207,6 @@ class Magnetometer:
             else:
                 # Poison pill, exit loop
                 df = pd.concat(log_data)
-
                 df.to_csv(filepath, index=False, header=False)
                 done = True
 
