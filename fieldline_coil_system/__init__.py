@@ -13,7 +13,7 @@ from .subsystems.analysis import *
 from .subsystems.constants import RESISTANCE, PCB_INVERSION, MAGNETOMETER_SCALING_FACTOR, directory
 from .simulation import FieldNuller
 
-# set the directory of this path to be the cwd (current working directory)
+# set the directory of this path to be the current working directory
 # This is done so the task scheduler / cron job can use relative paths instead
 # of absolute paths.
 abspath = os.path.abspath(__file__)
@@ -250,7 +250,14 @@ def run_diagnostics():
 def test_coils(current: Union[int, float] = 25e-3, panels=None):
     """
     Apply the same current to all coils.
-    :param current:
+
+    Can be used successively by passing in the returned panels object. Ex:
+
+    >>> p = test_coils(25e-3)  # turn coils on
+    >>> p = test_coils(0, p)  # off
+    >>> p = test_coils(25e-3, p)  # on
+
+    :param current: Current to apply to coils
     :return:
     """
 
@@ -280,8 +287,9 @@ def test_coils(current: Union[int, float] = 25e-3, panels=None):
 
 def test_coils_ac(current: Union[int, float] = 25e-3, hz=10, panels=None):
     """
-    Apply the same current to all coils.
-    :param current:
+    Apply the same specified ac current to all coils. Used similarly to `test_coils`
+    :param current: Amplitude of sine wave
+    :param hz: Frequency of sine wave
     :return:
     """
 
@@ -309,24 +317,33 @@ def test_coils_ac(current: Union[int, float] = 25e-3, hz=10, panels=None):
 
 
 def debug_test(coil_idx=0):
+    """
+    We have used this function to test and debug the outputs of a single coil against the theoretical output.
+    We take readings from the magnetometer to determine a baseline, calculate how much we expect the magnetic field to
+    change when we turn on the coil, turn on the coil, and measure the actual change in the magnetic field.
+
+    We then plot the final expected magnetic field as a horizontal dotted line. The magnetometer readings for the
+    associated axis over the duration of the experiment are shown in the same color. If the system is working as
+    expected we should see the readings jump to meet the expected fields with minimal error.
+
+    :param coil_idx: Coil to turn on.
+    :return:
+    """
     coil_idx = int(coil_idx)
-    #directory()
     mag_device = "cDAQ1Mod3"
     panels_device = "cDAQ1Mod4"
     logging_path = "../logs/temp/"
 
     current = 25e-3  # amps
     sample_rate = 120  # Hz
-    rate_period = 1.0/10.0
 
     shape = [2, 2, 1]
     panels = Panels(panels_device, shape)
 
+    # from cad model of the system
     coil_size = (.2, .2)  # meters
     coil_spacing = 0.003  # meters
-    # coil_spacing = 0.000  # meters
     wall_spacing = 0.2315  # meters
-    # wall_spacing = 0.0  # meters
     max_current = 45e-3  # amps
     turns_per_coil = 100
     measurement_point = (0, 0.0406, 0)
@@ -378,7 +395,7 @@ def debug_test(coil_idx=0):
     print('Stopping and closing')
     mag.stop()
     panels.stop()
-    time.sleep(5)
+    time.sleep(1)  # give some time for the tasks to stop correctly before removal
     mag.close()
     panels.close()
 
@@ -387,7 +404,6 @@ def debug_test(coil_idx=0):
 
     print('Expected Post Readings:\t', expected_agg_field)
     print('Actual Post Readings:\t', updated_readings)
-    # print(f'L2 error: {np.linalg.norm(updated_readings - expected_agg_field)}')
     print('')
 
     actual_field_contribution = updated_readings - readings
@@ -413,10 +429,6 @@ def debug_test(coil_idx=0):
     plt.axhline(y=expected_agg_field[0], color='blue', linestyle='-.', label=f'Expected x')
     plt.axhline(y=expected_agg_field[1], color='orange', linestyle='-.', label=f'Expected y')
     plt.axhline(y=expected_agg_field[2], color='green', linestyle='-.', label=f'Expected z')
-
-    # plt.axhline(y=readings[0], color='r', linestyle='-.', label=f'rx')
-    # plt.axhline(y=readings[1], color='g', linestyle='-.', label=f'ry')
-    # plt.axhline(y=readings[2], color='b', linestyle='-.', label=f'rz')
 
     plt.ylabel('Tesla')
     plt.xlabel('Time (second, sample)')
